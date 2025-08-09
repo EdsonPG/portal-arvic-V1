@@ -471,6 +471,11 @@
                                         <h4>Cliente Soporte</h4>
                                         <p>Reporte de servicios de soporte para un cliente específico</p>
                                     </div>
+                                    <div class="report-type-card" onclick="selectReportType('reporte_proyecto')">
+                                    <div class="report-type-icon">📋</div>
+                                    <h4>Reporte Proyecto</h4>
+                                    <p>Detalle de todos los consultores en un proyecto específico</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -663,6 +668,28 @@
                                 <!-- Contenedor para la vista previa -->
                                 <div id="reportPreviewContainerSoporte">
                                     <!-- Aquí se carga el selector de cliente y la tabla editable -->
+                                </div>
+                            </div>
+
+                            <!-- Configuración Reporte Proyecto -->
+                            <div id="reporte-proyecto-config" class="report-config" style="display: none;">
+                                <h3>📋 Configuración - Reporte Proyecto</h3>
+                                <div class="config-form">
+                                    <div class="form-group">
+                                        <label>Información:</label>
+                                        <p class="config-info">Este reporte muestra todos los consultores trabajando en un proyecto específico. Primero deberá seleccionar el proyecto y luego las horas y tarifas serán editables.</p>
+                                    </div>
+                                    
+                                    <div class="form-group" style="text-align: center;">
+                                        <button type="button" class="btn btn-primary" onclick="loadReporteProyectoConfiguration()">
+                                            📋 Seleccionar Proyecto
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Contenedor para la vista previa -->
+                                <div id="reportPreviewContainerProyecto">
+                                    <!-- Aquí se carga el selector y la tabla editable -->
                                 </div>
                             </div>
 
@@ -947,6 +974,7 @@
     <script src="js/pago-consultor-general.js"></script>
     <script src="js/pago-consultor-individual.js"></script>
     <script src="js/cliente-soporte.js"></script>
+    <script src="js/reporte-proyecto.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>
