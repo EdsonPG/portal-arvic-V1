@@ -2694,8 +2694,20 @@ function selectReportType(type) {
     document.getElementById('reporte-proyecto-config').style.display = 'block';
     selectedReportType = 'reporte_proyecto';
 
+    } else if (type === 'reporte_proyecto_cliente') {
+    document.getElementById('reporte-proyecto-cliente-config').style.display = 'block';
+    selectedReportType = 'reporte_proyecto_cliente';
+
+    } else if (type === 'reporte_proyecto_consultor') {
+    document.getElementById('reporte-proyecto-consultor-config').style.display = 'block';
+    selectedReportType = 'reporte_proyecto_consultor';
+
+    } else if (type === 'reporte_remanente') {
+    document.getElementById('reporte-remanente-config').style.display = 'block';
+    selectedReportType = 'reporte_remanente';
 }
 }
+
 
 // Configurar filtros de tiempo para actividades
 function setupActividadesTimeFilter() {
@@ -3757,6 +3769,17 @@ window.addEventListener('load', function() {
         allSections.forEach(s => console.log(`  - ${s.id}`));
         
     }, 1000);
+});
+
+// Verificar funciones de reportes al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔍 Verificando funciones de reportes...');
+    console.log('loadReporteProyectoClienteConfiguration:', typeof window.loadReporteProyectoClienteConfiguration);
+    
+    // Si no existe, mostrar error
+    if (typeof window.loadReporteProyectoClienteConfiguration === 'undefined') {
+        console.error('❌ ERROR: Funciones de reporte no cargadas. Verificar scripts.');
+    }
 });
 
 // Funciones exportadas globalmente

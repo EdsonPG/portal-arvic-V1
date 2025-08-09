@@ -472,9 +472,24 @@
                                         <p>Reporte de servicios de soporte para un cliente específico</p>
                                     </div>
                                     <div class="report-type-card" onclick="selectReportType('reporte_proyecto')">
-                                    <div class="report-type-icon">📋</div>
-                                    <h4>Reporte Proyecto</h4>
-                                    <p>Detalle de todos los consultores en un proyecto específico</p>
+                                        <div class="report-type-icon">📋</div>
+                                        <h4>Reporte Proyecto</h4>
+                                        <p>Detalle de todos los consultores en un proyecto específico</p>
+                                    </div>
+                                    <div class="report-type-card" onclick="selectReportType('reporte_proyecto_cliente')">
+                                        <div class="report-type-icon">🏢</div>
+                                        <h4>Rep. Proyecto (Cliente)</h4>
+                                        <p>Vista de proyectos orientada al cliente, agrupada por módulos</p>
+                                    </div>
+                                    <div class="report-type-card" onclick="selectReportType('reporte_proyecto_consultor')">
+                                        <div class="report-type-icon">👤</div>
+                                        <h4>Rep. Proyecto (Consultor)</h4>
+                                        <p>Reporte personal del consultor en proyecto específico</p>
+                                    </div>
+                                    <div class="report-type-card" onclick="selectReportType('reporte_remanente')">
+                                        <div class="report-type-icon">📊</div>
+                                        <h4>Reporte Remanente</h4>
+                                        <p>Control matricial semanal de horas remanentes por módulo</p>
                                     </div>
                                 </div>
                             </div>
@@ -690,6 +705,71 @@
                                 <!-- Contenedor para la vista previa -->
                                 <div id="reportPreviewContainerProyecto">
                                     <!-- Aquí se carga el selector y la tabla editable -->
+                                </div>
+                            </div>
+
+                            <!-- Configuración Reporte Proyecto (Cliente) -->
+                            <div id="reporte-proyecto-cliente-config" class="report-config" style="display: none;">
+                                <h3>🏢 Configuración - Rep. Proyecto (Cliente)</h3>
+                                <div class="config-form">
+                                    <div class="form-group">
+                                        <label>Información:</label>
+                                        <p class="config-info">Este reporte muestra los proyectos trabajados para un cliente específico, agrupados por módulos. Ideal para presentación externa al cliente.</p>
+                                    </div>
+                                    <div class="form-group" style="text-align: center;">
+                                    <button type="button" class="btn btn-primary" onclick="loadReporteProyectoClienteConfiguration()">
+                                        🏢 Seleccionar Cliente
+                                    </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Contenedor para la vista previa -->
+                                <div id="reportPreviewContainerProyectoCliente">
+                                    <!-- Aquí se carga el selector y la tabla editable -->
+                                </div>
+                            </div>
+
+                            <!-- Configuración Reporte Proyecto (Consultor) -->
+                            <div id="reporte-proyecto-consultor-config" class="report-config" style="display: none;">
+                                <h3>👤 Configuración - Rep. Proyecto (Consultor)</h3>
+                                <div class="config-form">
+                                    <div class="form-group">
+                                        <label>Información:</label>
+                                        <p class="config-info">Este reporte muestra el trabajo individual de un consultor específico en un proyecto particular. Ideal para evaluaciones de desempeño y reportes personales.</p>
+                                    </div>
+                                    
+                                    <div class="form-group" style="text-align: center;">
+                                        <button type="button" class="btn btn-primary" onclick="loadReporteProyectoConsultorConfiguration()">
+                                            👤 Seleccionar Consultor
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Contenedor para la vista previa -->
+                                <div id="reportPreviewContainerProyectoConsultor">
+                                    <!-- Aquí se carga el selector y la tabla editable -->
+                                </div>
+                            </div>
+
+                            <!-- Configuración Reporte Remanente -->
+                            <div id="reporte-remanente-config" class="report-config" style="display: none;">
+                                <h3>📊 Configuración - Reporte Remanente</h3>
+                                <div class="config-form">
+                                    <div class="form-group">
+                                        <label>Información:</label>
+                                        <p class="config-info">Este es el reporte más complejo del sistema. Muestra una matriz semanal de horas remanentes por módulo en un período mensual específico. Las semanas se calculan automáticamente según los días del mes.</p>
+                                    </div>
+                                    
+                                    <div class="form-group" style="text-align: center;">
+                                        <button type="button" class="btn btn-primary" onclick="loadRemanenteConfiguration()">
+                                            📊 Configurar Reporte Remanente
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Contenedor para la vista previa -->
+                                <div id="reportPreviewContainerRemanente">
+                                    <!-- Aquí se carga el selector y la matriz editable -->
                                 </div>
                             </div>
 
@@ -968,13 +1048,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="../js/database.js"></script>
-    <script src="../js/auth.js"></script>
-    <script src="../js/utils.js"></script>
-    <script src="js/pago-consultor-general.js"></script>
-    <script src="js/pago-consultor-individual.js"></script>
-    <script src="js/cliente-soporte.js"></script>
-    <script src="js/reporte-proyecto.js"></script>
-    <script src="admin.js"></script>
+<script src="../js/database.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script src="js/pago-consultor-general.js"></script>
+<script src="js/pago-consultor-individual.js"></script>
+<script src="js/cliente-soporte.js"></script>
+<script src="js/reporte-proyecto.js"></script>
+<script src="js/reporte-proyecto-cliente.js"></script>
+<script src="js/reporte-proyecto-consultor.js"></script>
+<script src="js/reporte-remanente.js"></script>
+<script src="admin.js"></script>
 </body>
 </html>
