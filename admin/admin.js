@@ -2693,6 +2693,8 @@ function selectReportType(type) {
     } else if (type === 'reporte_proyecto') {
     document.getElementById('reporte-proyecto-config').style.display = 'block';
     selectedReportType = 'reporte_proyecto';
+
+}
 }
 
 // Configurar filtros de tiempo para actividades
