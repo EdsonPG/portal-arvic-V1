@@ -2689,7 +2689,10 @@ function selectReportType(type) {
     } else if (type === 'cliente_soporte') {
         document.getElementById('cliente-soporte-config').style.display = 'block';
         selectedReportType = 'cliente_soporte';
-    }
+    
+    } else if (type === 'reporte_proyecto') {
+    document.getElementById('reporte-proyecto-config').style.display = 'block';
+    selectedReportType = 'reporte_proyecto';
 }
 
 // Configurar filtros de tiempo para actividades
