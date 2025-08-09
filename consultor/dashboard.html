@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Consultor - GRUPO IT ARVIC</title>
+    <link rel="stylesheet" href="../css/shared.css">
+    <link rel="stylesheet" href="../css/consultor.css">
+</head>
+<body class="consultor-layout">
+    <header class="consultor-header">
+        <nav class="navbar">
+            <div class="nav-left">
+                <div class="logo">
+                    <img src="../images/Logo Grupo IT Arvic 22.svg" alt="GRUPO IT ARVIC" class="consultor-logo-svg">
+                </div>
+            </div>
+            <div class="nav-center">
+                <h2 style="color: #2c3e50; margin: 0;">Portal de Consultor</h2>
+            </div>
+            <div class="nav-right">
+                <div class="user-menu">
+                    <span class="user-name" id="consultorUserName">Cargando...</span>
+                    <button class="btn btn-danger" onclick="logout()">Cerrar Sesión</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="text-align: center;">
+            <div style="border: 4px solid #f3f3f3; border-top: 4px solid #1cb5e0; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+            <p style="margin-top: 20px; color: #666;">Cargando portal...</p>
+        </div>
+    </div>
+
+    <main class="main-content" id="mainContent">
+        <div class="container">
+            <div class="content-wrapper">
+                <!-- Sidebar Simplificado -->
+                <div class="sidebar consultor-sidebar">
+                    <h2 class="sidebar-title">📋 Mis Asignaciones</h2>
+                    <div class="sidebar-menu">
+                        <div class="menu-item active">
+                            <span class="menu-text">Asignaciones Activas</span>
+                            <span class="menu-badge" id="assignmentsCount">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Principal -->
+                <div class="main-panel consultor-main">
+                    <!-- Sección de Asignaciones -->
+                    <div class="content-section active">
+                        <h2 class="section-title">🎯 Mis Asignaciones y Reportes</h2>
+                        
+                        <!-- Información del Usuario -->
+                        <div class="user-info-card">
+                            <h3>👤 Información del Consultor</h3>
+                            <div class="user-details">
+                                <p><strong>Nombre:</strong> <span id="userNameDisplay">Cargando...</span></p>
+                                <p><strong>ID:</strong> <span id="userIdDisplay">Cargando...</span></p>
+                                <p><strong>Estado:</strong> <span class="custom-badge badge-success">✅ Activo</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Lista de Asignaciones -->
+                        <div id="assignmentsList" class="assignments-container">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🎯</div>
+                                <div class="empty-state-title">No hay asignaciones</div>
+                                <div class="empty-state-desc">Las asignaciones del administrador aparecerán aquí</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+<!-- Modal para Crear Reporte - ESTRUCTURA MEJORADA -->
+<div id="createReportModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">📝 Crear Reporte de Horas</h2>
+            <button class="close" onclick="closeModal('createReportModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="reportForm">
+                <div class="form-group">
+                    <label>Asignación:</label>
+                    <div id="selectedAssignmentInfo" class="assignment-info-display">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reportTitle">Título del Reporte *</label>
+                    <input type="text" id="reportTitle" placeholder="Ej: Reporte Semanal - Desarrollo Módulo X" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="reportDescription">Descripción del Trabajo Realizado *</label>
+                    <textarea id="reportDescription" rows="5" 
+                              placeholder="Describe detalladamente el trabajo realizado, logros y observaciones..." 
+                              required></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reportHours">Horas Trabajadas *</label>
+                        <input type="number" id="reportHours" min="0.5" max="24" step="0.5" placeholder="8.0" required>
+                        <small class="form-text">Ingrese las horas en formato decimal (ej: 8.5)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="reportDate">Fecha del Reporte *</label>
+                        <input type="date" id="reportDate" required>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="text-align: center; margin-top: 25px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('createReportModal')" style="margin-right: 10px;">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="submit-btn">
+                        📤 Enviar Reporte
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ver Reportes de Asignación - ESTRUCTURA MEJORADA -->
+<div id="viewReportsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">📊 Reportes de Asignación</h2>
+            <button class="close" onclick="closeModal('viewReportsModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="assignmentReportsInfo">
+                <!-- Información de la asignación -->
+            </div>
+            <div id="reportsList">
+                <!-- Lista de reportes -->
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Error Message Container -->
+    <div id="errorContainer" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #ff6b6b; color: white; padding: 15px 25px; border-radius: 8px; z-index: 10000; max-width: 500px;">
+        <span id="errorText"></span>
+        <button onclick="hideError()" style="background: none; border: none; color: white; margin-left: 15px; cursor: pointer;">&times;</button>
+    </div>
+
+    <!-- Scripts en orden correcto -->
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="consultor.js"></script>
+</body>
+</html>
