@@ -50,8 +50,15 @@ function loadClienteSoporteConfiguration() {
             
             if (!company || !module || !support) return;
             
+            // Obtener reportes filtrados por fecha
+            const filteredReports = getFilteredReportsByDate(
+                'clienteSoporteTimeFilter',
+                'clienteSoporteStartDate', 
+                'clienteSoporteEndDate'
+            );
+
             // Buscar reportes aprobados para esta asignación
-            const clienteReports = Object.values(reports).filter(report => 
+            const consultorReports = filteredReports.filter(report =>
                 report.companyId === assignment.companyId &&
                 report.moduleId === assignment.moduleId &&
                 report.supportId === assignment.supportId &&

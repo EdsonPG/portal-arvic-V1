@@ -2677,26 +2677,33 @@ function selectReportType(type) {
     } else if (type === 'pago_consultor_general') {
         document.getElementById('pago-consultor-general-config').style.display = 'block';
         selectedReportType = 'pago_consultor_general';
+        setupPagosGeneralTimeFilter();
 
     } else if (type === 'pago_consultor_individual') {
         document.getElementById('pago-consultor-individual-config').style.display = 'block';
         selectedReportType = 'pago_consultor_individual';
+        setupPagosIndividualTimeFilter();
 
     } else if (type === 'cliente_soporte') {
         document.getElementById('cliente-soporte-config').style.display = 'block';
         selectedReportType = 'cliente_soporte';
+        setupClienteSoporteTimeFilter();
     
     } else if (type === 'reporte_proyecto') {
         document.getElementById('reporte-proyecto-config').style.display = 'block';
         selectedReportType = 'reporte_proyecto';
+        setupReporteProyectoTimeFilter();
 
     } else if (type === 'reporte_proyecto_cliente') {
         document.getElementById('reporte-proyecto-cliente-config').style.display = 'block';
         selectedReportType = 'reporte_proyecto_cliente';
+        setupReporteProyectoClienteTimeFilter();
 
     } else if (type === 'reporte_proyecto_consultor') {
-        document.getElementById('reporte-proyecto-consultor-config').style.display = 'block';
-        selectedReportType = 'reporte_proyecto_consultor';
+    document.getElementById('reporte-proyecto-consultor-config').style.display = 'block';
+    selectedReportType = 'reporte_proyecto_consultor';
+    setupReporteProyectoConsultorTimeFilter();
+    initReporteProyectoConsultor();
 
     } else if (type === 'reporte_remanente') {
         document.getElementById('reporte-remanente-config').style.display = 'block';
@@ -2734,11 +2741,164 @@ function setupPagosTimeFilter() {
     });
 }
 
+// Configurar filtros de tiempo para pago consultor general
+function setupPagosGeneralTimeFilter() {
+    const timeFilter = document.getElementById('pagosGeneralTimeFilter');
+    const customDateRange = document.getElementById('pagosGeneralCustomDateRange');
+    
+    timeFilter.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customDateRange.style.display = 'block';
+        } else {
+            customDateRange.style.display = 'none';
+        }
+    });
+}
+
+// Configurar filtros de tiempo para pago consultor individual
+function setupPagosIndividualTimeFilter() {
+    const timeFilter = document.getElementById('pagosIndividualTimeFilter');
+    const customDateRange = document.getElementById('pagosIndividualCustomDateRange');
+    
+    timeFilter.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customDateRange.style.display = 'block';
+        } else {
+            customDateRange.style.display = 'none';
+        }
+    });
+}
+
+// Configurar filtros de tiempo para cliente soporte
+function setupClienteSoporteTimeFilter() {
+    const timeFilter = document.getElementById('clienteSoporteTimeFilter');
+    const customDateRange = document.getElementById('clienteSoporteCustomDateRange');
+    
+    timeFilter.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customDateRange.style.display = 'block';
+        } else {
+            customDateRange.style.display = 'none';
+        }
+    });
+}
+
+// Configurar filtros de tiempo para reporte proyecto
+function setupReporteProyectoTimeFilter() {
+    const timeFilter = document.getElementById('reporteProyectoTimeFilter');
+    const customDateRange = document.getElementById('reporteProyectoCustomDateRange');
+    
+    timeFilter.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customDateRange.style.display = 'block';
+        } else {
+            customDateRange.style.display = 'none';
+        }
+    });
+}
+
+// Configurar filtros de tiempo para reporte proyecto cliente
+function setupReporteProyectoClienteTimeFilter() {
+    const timeFilter = document.getElementById('reporteProyectoClienteTimeFilter');
+    const customDateRange = document.getElementById('reporteProyectoClienteCustomDateRange');
+    
+    timeFilter.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customDateRange.style.display = 'block';
+        } else {
+            customDateRange.style.display = 'none';
+        }
+    });
+}
+
+// Configurar filtros de tiempo para reporte proyecto consultor
+function setupReporteProyectoConsultorTimeFilter() {
+    const timeFilter = document.getElementById('reporteProyectoConsultorTimeFilter');
+    const customDateRange = document.getElementById('reporteProyectoConsultorCustomDateRange');
+    
+    timeFilter.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customDateRange.style.display = 'block';
+        } else {
+            customDateRange.style.display = 'none';
+        }
+    });
+}
+
 // Obtener reportes filtrados por fecha
 function getFilteredReports(timeFilterId, startDateId, endDateId) {
     const timeFilter = document.getElementById(timeFilterId);
     const startDate = document.getElementById(startDateId);
     const endDate = document.getElementById(endDateId);
+    
+    const reports = Object.values(currentData.reports);
+    const approvedReports = reports.filter(r => r.status === 'Aprobado');
+    
+    let filteredReports = [];
+    const now = new Date();
+    
+    switch(timeFilter.value) {
+        case 'week':
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay());
+            startOfWeek.setHours(0, 0, 0, 0);
+            
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            endOfWeek.setHours(23, 59, 59, 999);
+            
+            filteredReports = approvedReports.filter(report => {
+                const reportDate = new Date(report.createdAt);
+                return reportDate >= startOfWeek && reportDate <= endOfWeek;
+            });
+            break;
+            
+        case 'month':
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            endOfMonth.setHours(23, 59, 59, 999);
+            
+            filteredReports = approvedReports.filter(report => {
+                const reportDate = new Date(report.createdAt);
+                return reportDate >= startOfMonth && reportDate <= endOfMonth;
+            });
+            break;
+            
+        case 'custom':
+            if (startDate && endDate && startDate.value && endDate.value) {
+                const customStart = new Date(startDate.value);
+                customStart.setHours(0, 0, 0, 0);
+                
+                const customEnd = new Date(endDate.value);
+                customEnd.setHours(23, 59, 59, 999);
+                
+                filteredReports = approvedReports.filter(report => {
+                    const reportDate = new Date(report.createdAt);
+                    return reportDate >= customStart && reportDate <= customEnd;
+                });
+            } else {
+                filteredReports = approvedReports;
+            }
+            break;
+            
+        default: // 'all'
+            filteredReports = approvedReports;
+            break;
+    }
+    
+    return filteredReports;
+}
+
+// Función helper para filtrar reportes por fecha (versión genérica)
+function getFilteredReportsByDate(timeFilterId, startDateId, endDateId) {
+    const timeFilter = document.getElementById(timeFilterId);
+    const startDate = document.getElementById(startDateId);
+    const endDate = document.getElementById(endDateId);
+    
+    if (!timeFilter) {
+        console.log('No hay filtro de tiempo, devolviendo todos los reportes');
+        return Object.values(currentData.reports).filter(r => r.status === 'Aprobado');
+    }
     
     const reports = Object.values(currentData.reports);
     const approvedReports = reports.filter(r => r.status === 'Aprobado');
@@ -3779,6 +3939,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+
 // === SOLUCIÓN PARA BUCLE INFINITO Y SELECTOR DE CONSULTORES ===
 
 // 1. CORRECCIÓN CRÍTICA: Añadir al final de admin.js para evitar bucle infinito
@@ -4573,8 +4734,9 @@ window.loadPagosIndividualConfiguration = loadPagosIndividualConfiguration;
 window.generatePagosIndividualReport = generatePagosIndividualReport;
 window.updatePagosIndividualRow = updatePagosIndividualRow;
 window.resetPagosIndividualData = resetPagosIndividualData;
-window.showConsultorSelector = showConsultorSelector;
-window.onConsultorSelected = onConsultorSelected;
+window.showConsultorSelectorIndividual = showConsultorSelector;
+window.onConsultorSelectedIndividual = onConsultorSelected;
+
 
 // Funciones del reporte Cliente Soporte
 window.loadClienteSoporteConfiguration = loadClienteSoporteConfiguration;
