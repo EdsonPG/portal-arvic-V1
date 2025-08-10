@@ -445,52 +445,20 @@
                             <!-- Selector de Tipo de Reporte -->
                             <div class="report-type-selector">
                                 <h3>Seleccionar Tipo de Reporte</h3>
-                                <div class="report-type-options">
-                                    <div class="report-type-card" onclick="selectReportType('actividades')">
-                                        <div class="report-type-icon">📊</div>
-                                        <h4>Reporte de Actividades</h4>
-                                        <p>Reporte de horas trabajadas por consultor y asignación</p>
-                                    </div>
-                                    <div class="report-type-card" onclick="selectReportType('pagos')">
-                                        <div class="report-type-icon">💰</div>
-                                        <h4>Reporte de Pago Consultores</h4>
-                                        <p>Reporte de pagos con tarifas editables por consultor</p>
-                                    </div>
-                                    <div class="report-type-card" onclick="selectReportType('pago_consultor_general')">
-                                        <div class="report-type-icon">🏢</div>
-                                            <h4>Pago Consultor (General)</h4>
-                                            <p>Resumen de pagos consolidado para todos los consultores</p>
-                                    </div>
-                                    <div class="report-type-card" onclick="selectReportType('pago_consultor_individual')">
-                                        <div class="report-type-icon">👤</div>
-                                        <h4>Pago Consultor (Consultor)</h4>
-                                        <p>Reporte de pagos individual para un consultor específico</p>
-                                    </div>
-                                    <div class="report-type-card" onclick="selectReportType('cliente_soporte')">
-                                        <div class="report-type-icon">📞</div>
-                                        <h4>Cliente Soporte</h4>
-                                        <p>Reporte de servicios de soporte para un cliente específico</p>
-                                    </div>
-                                    <div class="report-type-card" onclick="selectReportType('reporte_proyecto')">
-                                        <div class="report-type-icon">📋</div>
-                                        <h4>Reporte Proyecto</h4>
-                                        <p>Detalle de todos los consultores en un proyecto específico</p>
-                                    </div>
-                                    <div class="report-type-card" onclick="selectReportType('reporte_proyecto_cliente')">
-                                        <div class="report-type-icon">🏢</div>
-                                        <h4>Rep. Proyecto (Cliente)</h4>
-                                        <p>Vista de proyectos orientada al cliente, agrupada por módulos</p>
-                                    </div>
-                                    <div class="report-type-card" onclick="selectReportType('reporte_proyecto_consultor')">
-                                        <div class="report-type-icon">👤</div>
-                                        <h4>Rep. Proyecto (Consultor)</h4>
-                                        <p>Reporte personal del consultor en proyecto específico</p>
-                                    </div>
-                                    <div class="report-type-card" onclick="selectReportType('reporte_remanente')">
-                                        <div class="report-type-icon">📊</div>
-                                        <h4>Reporte Remanente</h4>
-                                        <p>Control matricial semanal de horas remanentes por módulo</p>
-                                    </div>
+                                <div class="form-group" style="max-width: 500px; margin: 0 auto;">
+                                    <label for="reportTypeSelect">Tipo de Reporte:</label>
+                                    <select id="reportTypeSelect" class="form-control" onchange="selectReportType(this.value)">
+                                        <option value="">-- Seleccione un tipo de reporte --</option>
+                                        <option value="actividades">📊 Reporte de Actividades</option>
+                                        <option value="pagos">💰 Pago Consultor General (Proyecto)</option>
+                                        <option value="pago_consultor_general">🏢 Pago Consultor General (Soporte)</option>
+                                        <option value="pago_consultor_individual">👤 Pago Consultor (Soporte)</option>
+                                        <option value="cliente_soporte">📞 Cliente Soporte</option>
+                                        <option value="reporte_proyecto">📋 Reporte Proyecto</option>
+                                        <option value="reporte_proyecto_cliente">🏢 Reporte Proyecto (Cliente)</option>
+                                        <option value="reporte_proyecto_consultor">👤 Rep. Proyecto (Consultor)</option>
+                                        <option value="reporte_remanente">⏳ Reporte Remanente</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -551,7 +519,7 @@
 
                             <!-- Configuración Reporte de Pagos -->
                             <div id="pagos-config" class="report-config" style="display: none;">
-                                <h3>💰 Configuración - Reporte de Pago Consultores</h3>
+                                <h3>💰 Configuración - Pago Consultores (Proyecto)</h3>
                                 <div class="config-form">
                                     <div class="form-group">
                                         <label for="pagosTimeFilter">Período:</label>
@@ -622,7 +590,7 @@
 
                             <!-- Configuración Pago Consultor General -->
                             <div id="pago-consultor-general-config" class="report-config" style="display: none;">
-                                <h3>🏢 Configuración - Pago Consultor (General)</h3>
+                                <h3>🏢 Configuración - Pago Consultor General (Soporte)</h3>
                                 <div class="config-form">
                                     <div class="form-group">
                                         <label>Información:</label>
@@ -644,7 +612,7 @@
 
                             <!-- Configuración Pago Consultor Individual -->
                             <div id="pago-consultor-individual-config" class="report-config" style="display: none;">
-                                <h3>👤 Configuración - Pago Consultor (Individual)</h3>
+                                <h3>👤 Configuración - Pago Consultor Individual (Soporte)</h3>
                                 <div class="config-form">
                                     <div class="form-group">
                                         <label>Información:</label>
@@ -753,23 +721,28 @@
 
                             <!-- Configuración Reporte Remanente -->
                             <div id="reporte-remanente-config" class="report-config" style="display: none;">
-                                <h3>📊 Configuración - Reporte Remanente</h3>
+                                <h3>⏳ Configuración - Reporte Remanente</h3>
                                 <div class="config-form">
                                     <div class="form-group">
                                         <label>Información:</label>
-                                        <p class="config-info">Este es el reporte más complejo del sistema. Muestra una matriz semanal de horas remanentes por módulo en un período mensual específico. Las semanas se calculan automáticamente según los días del mes.</p>
+                                        <p class="config-info">Este reporte muestra una matriz semanal de horas remanentes por módulo en el período mensual seleccionado.</p>
                                     </div>
                                     
-                                    <div class="form-group" style="text-align: center;">
-                                        <button type="button" class="btn btn-primary" onclick="loadRemanenteConfiguration()">
-                                            📊 Configurar Reporte Remanente
+                                    <div class="form-group" style="max-width: 300px; margin: 0 auto;">
+                                        <label for="remanenteMonthSelector">Seleccionar Mes:</label>
+                                        <input type="month" id="remanenteMonthSelector" class="form-control" onchange="onRemanenteMonthSelected()">
+                                    </div>
+                                    
+                                    <div class="form-group" style="text-align: center; margin-top: 20px;">
+                                        <button type="button" class="btn btn-primary" onclick="loadRemanenteSimpleConfiguration()" id="generateRemanenteSimpleBtn" disabled>
+                                            ⏳ Generar Reporte Remanente
                                         </button>
                                     </div>
                                 </div>
                                 
                                 <!-- Contenedor para la vista previa -->
-                                <div id="reportPreviewContainerRemanente">
-                                    <!-- Aquí se carga el selector y la matriz editable -->
+                                <div id="reportPreviewContainerRemanenteSimple">
+                                    <!-- Aquí se carga la matriz editable -->
                                 </div>
                             </div>
 
