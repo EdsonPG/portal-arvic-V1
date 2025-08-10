@@ -50,38 +50,38 @@ function loadClienteSoporteConfiguration() {
             
             if (!company || !module || !support) return;
             
-            // Obtener reportes filtrados por fecha
-            const filteredReports = getFilteredReportsByDate(
-                'clienteSoporteTimeFilter',
-                'clienteSoporteStartDate', 
-                'clienteSoporteEndDate'
-            );
+                // Obtener reportes filtrados por fecha
+                const filteredReports = getFilteredReportsByDate(
+                    'clienteSoporteTimeFilter',
+                    'clienteSoporteStartDate', 
+                    'clienteSoporteEndDate'
+                );
 
-            // Buscar reportes aprobados para esta asignación
-            const consultorReports = filteredReports.filter(report =>
-                report.companyId === assignment.companyId &&
-                report.moduleId === assignment.moduleId &&
-                report.supportId === assignment.supportId &&
-                report.status === 'approved'
-            );
-            
-            // Calcular total de horas y monto
-            const totalHours = clienteReports.reduce((sum, report) => sum + (report.hoursWorked || 0), 0);
-            const totalAmount = totalHours * (assignment.hourlyRate || 0);
-            
-            // Solo agregar si hay horas trabajadas
-            if (totalHours > 0) {
-                reportData.push({
-                    soporte: support.nombre,
-                    modulo: module.nombre,
-                    tiempo: totalHours,
-                    tarifa: assignment.hourlyRate || 0,
-                    total: totalAmount,
-                    _companyId: assignment.companyId,
-                    _moduleId: assignment.moduleId,
-                    _supportId: assignment.supportId
-                });
-            }
+                // Buscar reportes aprobados para esta asignación
+                const consultorReports = filteredReports.filter(report =>
+                    report.companyId === assignment.companyId &&
+                    report.moduleId === assignment.moduleId &&
+                    report.supportId === assignment.supportId &&
+                    report.status === 'approved'
+                );
+
+                // 🛠️ CORRECCIÓN: Cambiar clienteReports por consultorReports
+                const totalHours = consultorReports.reduce((sum, report) => sum + (report.hoursWorked || 0), 0);
+                const totalAmount = totalHours * (assignment.hourlyRate || 0);
+
+                // Solo agregar si hay horas trabajadas
+                if (totalHours > 0) {
+                    reportData.push({
+                        soporte: support.nombre,
+                        modulo: module.nombre,
+                        tiempo: totalHours,
+                        tarifa: assignment.hourlyRate || 0,
+                        total: totalAmount,
+                        _companyId: assignment.companyId,
+                        _moduleId: assignment.moduleId,
+                        _supportId: assignment.supportId
+                    });
+                }
         });
         
         // Ordenar por soporte y módulo

@@ -4709,6 +4709,33 @@ window.verificarDatos = function() {
     return consultores.length > 0;
 };
 
+// Verificar que las funciones existan antes de exportarlas
+if (typeof showConsultorSelectorIndividual !== 'undefined') {
+    window.showConsultorSelectorIndividual = showConsultorSelectorIndividual;
+}
+if (typeof onConsultorSelectedIndividual !== 'undefined') {
+    window.onConsultorSelectedIndividual = onConsultorSelectedIndividual;
+}
+if (typeof generatePagosIndividualPreview !== 'undefined') {
+    window.generatePagosIndividualPreview = generatePagosIndividualPreview;
+}
+
+// === FORZAR EXPORTACIONES AL FINAL ===
+setTimeout(() => {
+    console.log('🔧 Forzando exportaciones correctas...');
+    
+    if (window.showConsultorSelectorIndividual && window.onConsultorSelectedIndividual) {
+        console.log('✅ Funciones ya están disponibles');
+    } else {
+        // Forzar la carga desde el archivo individual
+        if (window.PagosIndividualReport) {
+            window.showConsultorSelectorIndividual = window.PagosIndividualReport.showSelector;
+            window.onConsultorSelectedIndividual = window.PagosIndividualReport.onConsultorSelected;
+        }
+        console.log('🔄 Funciones forzadas');
+    }
+}, 1000);
+
 // EJECUTAR AUTOMÁTICAMENTE LAS CORRECCIONES
 aplicarCorrecciones();
 
@@ -4734,8 +4761,9 @@ window.loadPagosIndividualConfiguration = loadPagosIndividualConfiguration;
 window.generatePagosIndividualReport = generatePagosIndividualReport;
 window.updatePagosIndividualRow = updatePagosIndividualRow;
 window.resetPagosIndividualData = resetPagosIndividualData;
-window.showConsultorSelectorIndividual = showConsultorSelector;
-window.onConsultorSelectedIndividual = onConsultorSelected;
+window.showConsultorSelectorIndividual = showConsultorSelectorIndividual;
+window.onConsultorSelectedIndividual = onConsultorSelectedIndividual;
+window.generatePagosIndividualPreview = generatePagosIndividualPreview;
 
 
 // Funciones del reporte Cliente Soporte

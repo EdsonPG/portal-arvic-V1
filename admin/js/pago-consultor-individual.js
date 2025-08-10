@@ -163,7 +163,7 @@ function showConsultorSelector() {
             <div class="selector-form">
                 <div class="form-group">
                     <label for="consultorSelector">Consultor:</label>
-                    <select id="consultorSelector" class="form-select" onchange="onConsultorSelected()">
+                    <select id="consultorSelector" class="form-select" onchange="onConsultorSelectedIndividual()">
                         <option value="">-- Seleccione un consultor --</option>`;
     
     consultores.forEach(consultor => {
@@ -175,7 +175,7 @@ function showConsultorSelector() {
                 </div>
                 
                 <div class="form-group" style="text-align: center; margin-top: 20px;">
-                    <button type="button" class="btn btn-primary" onclick="loadPagosIndividualConfiguration()" disabled id="generateBtn">
+                    <button type="button" class="btn btn-primary" onclick="generatePagosIndividualPreview()" disabled id="generateBtn">
                         📊 Generar Vista Previa
                     </button>
                 </div>
@@ -199,6 +199,54 @@ function onConsultorSelected() {
         generateBtn.classList.add('btn-disabled');
         selectedConsultorId = null;
     }
+}
+
+function showConsultorSelectorIndividual() {
+    console.log('👤 Mostrando selector de consultor individual (desde botón principal)...');
+    
+    // Reutilizar la función existente pero marcando que viene del botón principal
+    window.isFromMainButton = true;
+    showConsultorSelector();
+}
+
+// === NUEVA FUNCIÓN: CALLBACK ESPECÍFICO PARA SELECTOR INDIVIDUAL ===
+function onConsultorSelectedIndividual() {
+    console.log('📋 Consultor seleccionado desde selector individual...');
+    
+    const consultorSelect = document.getElementById('consultorSelector');
+    const generateBtn = document.getElementById('generateBtn');
+    
+    if (consultorSelect && generateBtn) {
+        if (consultorSelect.value) {
+            generateBtn.disabled = false;
+            generateBtn.classList.remove('btn-disabled');
+            selectedConsultorId = consultorSelect.value;
+            
+            // Cambiar el texto del botón para que sea más claro
+            generateBtn.innerHTML = '📊 Generar Vista Previa';
+            generateBtn.onclick = function() { generatePagosIndividualPreview(); };
+            
+            console.log(`✅ Consultor seleccionado: ${selectedConsultorId}`);
+        } else {
+            generateBtn.disabled = true;
+            generateBtn.classList.add('btn-disabled');
+            selectedConsultorId = null;
+            generateBtn.innerHTML = '📊 Generar Vista Previa';
+        }
+    }
+}
+
+// === NUEVA FUNCIÓN: GENERAR VISTA PREVIA ===
+function generatePagosIndividualPreview() {
+    console.log('📊 Generando vista previa para consultor:', selectedConsultorId);
+    
+    if (!selectedConsultorId) {
+        window.NotificationUtils.error('Debe seleccionar un consultor primero');
+        return;
+    }
+    
+    // Llamar a la función de configuración original
+    loadPagosIndividualConfiguration();
 }
 
 // === MOSTRAR TABLA EDITABLE ===
@@ -640,9 +688,19 @@ if (typeof window !== 'undefined') {
     };
 }
 
-// Exportar inmediatamente
+// Exportar inmediatamente - VERSIÓN CORREGIDA
 window.showConsultorSelector = showConsultorSelector;
+window.showConsultorSelectorIndividual = showConsultorSelectorIndividual;
 window.onConsultorSelected = onConsultorSelected;
+window.onConsultorSelectedIndividual = onConsultorSelectedIndividual;
+window.generatePagosIndividualPreview = generatePagosIndividualPreview;
+
 console.log('✅ Funciones exportadas desde pago-consultor-individual.js');
+console.log('📋 Funciones disponibles:', {
+    showConsultorSelector: !!window.showConsultorSelector,
+    showConsultorSelectorIndividual: !!window.showConsultorSelectorIndividual,
+    onConsultorSelectedIndividual: !!window.onConsultorSelectedIndividual,
+    generatePagosIndividualPreview: !!window.generatePagosIndividualPreview
+});
 
 console.log('✅ Reporte Pago Consultor Individual inicializado correctamente');
