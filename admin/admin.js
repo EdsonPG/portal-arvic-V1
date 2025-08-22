@@ -1,3 +1,5 @@
+let currentReportFilter = 'all';
+
 function diagnosticCompleteAdmin() {
     console.log('🔍 === DIAGNÓSTICO COMPLETO ===');
     
@@ -1625,43 +1627,267 @@ function generateAdminReport() {
     printWindow.document.close();
 }
 
-// === FUNCIONES EXPORTADAS GLOBALMENTE ===
-window.showSection = showSection;
-window.openUserModal = openUserModal;
-window.openCompanyModal = openCompanyModal;
-window.openSupportModal = openSupportModal;
-window.deleteSupport = deleteSupport;
-window.openProjectModal = openProjectModal;
-window.openModuleModal = openModuleModal;
-window.closeModal = closeModal;
-window.deleteUser = deleteUser;
-window.deleteCompany = deleteCompany;
-window.deleteProject = deleteProject;
-window.deleteModule = deleteModule;
-window.createAssignment = createAssignment;
-window.deleteAssignment = deleteAssignment;
-window.createProjectAssignment = createProjectAssignment;
-window.deleteProjectAssignment = deleteProjectAssignment;
-window.updateProjectAssignmentDropdowns = updateProjectAssignmentDropdowns;
-window.approveReport = approveReport;
-window.rejectReport = rejectReport;
-window.logout = logout;
-window.exportData = exportData;
-window.importData = importData;
-window.generateAdminReport = generateAdminReport;
-window.viewReport = viewReport;
-window.updateApprovedReportsList = updateApprovedReportsList;
-window.updateProjectsList = updateProjectsList;
-window.updateModulesList = updateModulesList;
-window.updateAssignmentsList = updateAssignmentsList;
-window.updateUsersList = updateUsersList;
-window.viewUserAssignments = viewUserAssignments;
-window.updateGeneratedReportsList = updateGeneratedReportsList;
-window.refreshGeneratedReportsList = refreshGeneratedReportsList;
-window.deleteGeneratedReportFromHistory = deleteGeneratedReportFromHistory;
+/**
+ * Detecta la categoría de un reporte (soporte o proyecto)
+ * @param {Object} report - Objeto del reporte
+ * @returns {string} - 'soporte', 'proyecto', o 'unknown'
+ */
+function getReportCategory(report) {
+    if (!report.assignmentId) {
+        return 'unknown';
+    }
+    
+    // Verificar si es asignación de soporte (assignments)
+    const supportAssignment = currentData.assignments[report.assignmentId];
+    if (supportAssignment && supportAssignment.supportId) {
+        return 'soporte';
+    }
+    
+    // Verificar si es asignación de proyecto (project_assignments)
+    const projectAssignments = currentData.projectAssignments || {};
+    const projectAssignment = projectAssignments[report.assignmentId];
+    if (projectAssignment && projectAssignment.projectId) {
+        return 'proyecto';
+    }
+    
+    return 'unknown';
+}
 
-console.log('✅ Funciones de asignación de proyectos cargadas');
-console.log('✅ Funciones del administrador exportadas globalmente');/**
+/**
+ * Filtra reportes por categoría y actualiza la interfaz
+ * @param {string} category - 'all', 'soporte', 'proyecto'
+ */
+function filterReportsByCategory(category) {
+    console.log(`🔍 Filtrando reportes por categoría: ${category}`);
+    
+    currentReportFilter = category;
+    
+    // Actualizar botones activos
+    updateCategoryFilterButtons(category);
+    
+    // Actualizar tabla con filtro aplicado
+    updateReportsListWithFilter();
+    
+    // Animación de filtrado
+    const table = document.querySelector('.reports-table');
+    if (table) {
+        table.classList.add('filtering');
+        setTimeout(() => {
+            table.classList.remove('filtering');
+        }, 300);
+    }
+}
+
+/**
+ * Actualiza el estado visual de los botones de filtro
+ * @param {string} activeCategory - Categoría activa
+ */
+function updateCategoryFilterButtons(activeCategory) {
+    document.querySelectorAll('.category-filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.category === activeCategory) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+/**
+ * Actualiza la lista de reportes aplicando el filtro actual
+ */
+function updateReportsListWithFilter() {
+    const reportsTableBody = document.getElementById('reportsTableBody');
+    if (!reportsTableBody) return;
+    
+    const allReports = Object.values(currentData.reports);
+    const pendingReports = allReports.filter(r => r.status === 'Pendiente');
+    
+    // Aplicar filtro por categoría
+    let filteredReports = pendingReports;
+    if (currentReportFilter !== 'all') {
+        filteredReports = pendingReports.filter(report => {
+            const category = getReportCategory(report);
+            return category === currentReportFilter;
+        });
+    }
+    
+    // Actualizar contadores
+    updateReportCategoryCounts(pendingReports);
+    
+    // Renderizar reportes filtrados
+    if (filteredReports.length === 0) {
+        const emptyMessage = getEmptyStateMessage(currentReportFilter);
+        reportsTableBody.innerHTML = `
+            <tr>
+                <td colspan="10" class="empty-table-message">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">${emptyMessage.icon}</div>
+                        <div class="empty-state-title">${emptyMessage.title}</div>
+                        <div class="empty-state-desc">${emptyMessage.desc}</div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    } else {
+        reportsTableBody.innerHTML = '';
+        filteredReports.forEach(report => {
+            const reportRow = createReportTableRow(report);
+            reportsTableBody.appendChild(reportRow);
+        });
+    }
+}
+
+/**
+ * Actualiza los contadores en los botones de filtro
+ * @param {Array} allPendingReports - Todos los reportes pendientes
+ */
+function updateReportCategoryCounts(allPendingReports) {
+    const counts = {
+        all: allPendingReports.length,
+        soporte: 0,
+        proyecto: 0
+    };
+    
+    allPendingReports.forEach(report => {
+        const category = getReportCategory(report);
+        if (counts[category] !== undefined) {
+            counts[category]++;
+        }
+    });
+    
+    // Actualizar elementos del DOM
+    const allCountElement = document.getElementById('filterCountAll');
+    const soporteCountElement = document.getElementById('filterCountSoporte');
+    const proyectoCountElement = document.getElementById('filterCountProyecto');
+    
+    if (allCountElement) allCountElement.textContent = counts.all;
+    if (soporteCountElement) soporteCountElement.textContent = counts.soporte;
+    if (proyectoCountElement) proyectoCountElement.textContent = counts.proyecto;
+}
+
+/**
+ * Genera el mensaje de estado vacío según la categoría
+ * @param {string} category - Categoría actual
+ * @returns {Object} - Objeto con icon, title y desc
+ */
+function getEmptyStateMessage(category) {
+    switch (category) {
+        case 'soporte':
+            return {
+                icon: '📞',
+                title: 'No hay reportes de soporte pendientes',
+                desc: 'Los reportes de soporte aparecerán aquí para su revisión'
+            };
+        case 'proyecto':
+            return {
+                icon: '📋',
+                title: 'No hay reportes de proyecto pendientes',
+                desc: 'Los reportes de proyecto aparecerán aquí para su revisión'
+            };
+        default:
+            return {
+                icon: '📄',
+                title: 'No hay reportes pendientes',
+                desc: 'Los reportes enviados por consultores aparecerán aquí'
+            };
+    }
+}
+
+/**
+ * Crea una fila de la tabla para un reporte
+ * @param {Object} report - Objeto del reporte
+ * @returns {HTMLElement} - Elemento tr de la tabla
+ */
+function createReportTableRow(report) {
+    const user = currentData.users[report.userId];
+    
+    let assignment = null;
+    let company = null;
+    let support = null;
+    let project = null;
+    let module = null;
+    
+    // Determinar tipo de asignación y obtener datos
+    if (report.assignmentId) {
+        // Verificar asignación de soporte
+        assignment = currentData.assignments[report.assignmentId];
+        if (assignment) {
+            company = currentData.companies[assignment.companyId];
+            support = currentData.supports[assignment.supportId];
+            module = currentData.modules[assignment.moduleId];
+        } else {
+            // Verificar asignación de proyecto
+            const projectAssignments = currentData.projectAssignments || {};
+            assignment = projectAssignments[report.assignmentId];
+            if (assignment) {
+                company = currentData.companies[assignment.companyId];
+                project = currentData.projects[assignment.projectId];
+                module = currentData.modules[assignment.moduleId];
+            }
+        }
+    }
+    
+    const row = document.createElement('tr');
+    
+    // Determinar qué mostrar en columna "Soporte"
+    const soporteContent = support ? support.name : (project ? project.name : 'Sin asignación');
+    const tipoSoporte = support ? support.type || 'N/A' : (project ? 'Proyecto' : 'Sin tipo');
+    
+    row.innerHTML = `
+        <td><span class="consultant-id">${user?.id || 'N/A'}</span></td>
+        <td><span class="consultant-name">${user?.name || 'Usuario no encontrado'}</span></td>
+        <td><span class="company-name">${company ? company.name : 'Sin asignación'}</span></td>
+        <td><span class="project-name">${soporteContent}</span></td>
+        <td>${tipoSoporte}</td>
+        <td>${module ? module.name : 'Sin módulo'}</td>
+        <td><span class="hours-badge">${report.hours || 0} hrs</span></td>
+        <td>${window.DateUtils ? window.DateUtils.formatDate(report.createdAt) : new Date(report.createdAt).toLocaleDateString()}</td>
+        <td><span class="status-badge status-pending">Pendiente</span></td>
+        <td>
+            <div class="action-buttons">
+                <button class="action-btn btn-view" onclick="viewReport('${report.id}')" title="Ver detalles">
+                    👁️ Ver
+                </button>
+                <button class="action-btn btn-approve" onclick="approveReport('${report.id}')" title="Aprobar reporte">
+                    ✅ Aprobar
+                </button>
+                <button class="action-btn btn-reject" onclick="rejectReport('${report.id}')" title="Rechazar reporte">
+                    ❌ Rechazar
+                </button>
+            </div>
+        </td>
+    `;
+    
+    return row;
+}
+
+/**
+ * Modifica la función existente updateReportsList para usar el nuevo sistema
+ */
+function updateReportsList() {
+    console.log('📊 Actualizando lista de reportes con sistema de filtros...');
+    
+    // Cargar datos actuales
+    currentData.reports = window.PortalDB.getReports();
+    
+    // Aplicar filtro actual
+    updateReportsListWithFilter();
+}
+
+// Inicializar filtros cuando se carga la sección
+function initializeReportsFilters() {
+    console.log('🎯 Inicializando filtros de reportes...');
+    
+    // Resetear filtro a 'all'
+    currentReportFilter = 'all';
+    
+    // Actualizar botones
+    updateCategoryFilterButtons('all');
+    
+    // Cargar reportes
+    updateReportsList();
+}
+
+/**
 
  * === LÓGICA DEL PANEL DE ADMINISTRADOR REORGANIZADO ===
  * Maneja todas las funciones administrativas del portal con sidebar
@@ -1850,7 +2076,7 @@ function loadSectionData(sectionName) {
                 updateAssignmentsList();
                 break;
             case 'reportes-pendientes':
-                updateReportsList();
+                initializeReportsFilters();
                 break;
             case 'asignar-proyectos':
                 updateProjectAssignmentDropdowns();
@@ -1873,17 +2099,6 @@ function loadSectionData(sectionName) {
                 break;
             case 'historial-reportes':
                 updateGeneratedReportsList();
-                break;
-            case 'generar-reporte':
-                // Reiniciar configuración de reportes
-                selectedReportType = null;
-                currentReportData = [];
-                tariffConfiguration = {};
-                // Limpiar vista previa del nuevo reporte
-                const previewContainer = document.getElementById('reportPreviewContainer');
-                if (previewContainer) {
-                    previewContainer.innerHTML = '';
-                }
                 break;
             default:
                 console.log(`⚠️ Sección ${sectionName} no tiene carga de datos específica`);
@@ -2654,64 +2869,27 @@ let tariffConfiguration = {};
 function selectReportType(type) {
     selectedReportType = type;
     
+    // Limpiar selecciones anteriores
+    document.querySelectorAll('.report-type-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Marcar como seleccionado
+    event.target.closest('.report-type-card').classList.add('selected');
+    
     // Ocultar todas las configuraciones
     document.getElementById('actividades-config').style.display = 'none';
     document.getElementById('pagos-config').style.display = 'none';
-    document.getElementById('pago-consultor-general-config').style.display = 'none';
-    document.getElementById('pago-consultor-individual-config').style.display = 'none';
-    document.getElementById('cliente-soporte-config').style.display = 'none';
-    document.getElementById('reporte-proyecto-config').style.display = 'none';
-    document.getElementById('reporte-proyecto-cliente-config').style.display = 'none';
-    document.getElementById('reporte-proyecto-consultor-config').style.display = 'none';
-    document.getElementById('reporte-remanente-config').style.display = 'none';
-
-    // Mostrar configuración correspondiente según el tipo seleccionado
+    
+    // Mostrar configuración correspondiente
     if (type === 'actividades') {
         document.getElementById('actividades-config').style.display = 'block';
         setupActividadesTimeFilter();
-
     } else if (type === 'pagos') {
         document.getElementById('pagos-config').style.display = 'block';
         setupPagosTimeFilter();
-
-    } else if (type === 'pago_consultor_general') {
-        document.getElementById('pago-consultor-general-config').style.display = 'block';
-        selectedReportType = 'pago_consultor_general';
-        setupPagosGeneralTimeFilter();
-
-    } else if (type === 'pago_consultor_individual') {
-        document.getElementById('pago-consultor-individual-config').style.display = 'block';
-        selectedReportType = 'pago_consultor_individual';
-        setupPagosIndividualTimeFilter();
-
-    } else if (type === 'cliente_soporte') {
-        document.getElementById('cliente-soporte-config').style.display = 'block';
-        selectedReportType = 'cliente_soporte';
-        setupClienteSoporteTimeFilter();
-    
-    } else if (type === 'reporte_proyecto') {
-        document.getElementById('reporte-proyecto-config').style.display = 'block';
-        selectedReportType = 'reporte_proyecto';
-        setupReporteProyectoTimeFilter();
-
-    } else if (type === 'reporte_proyecto_cliente') {
-        document.getElementById('reporte-proyecto-cliente-config').style.display = 'block';
-        selectedReportType = 'reporte_proyecto_cliente';
-        setupReporteProyectoClienteTimeFilter();
-
-    } else if (type === 'reporte_proyecto_consultor') {
-    document.getElementById('reporte-proyecto-consultor-config').style.display = 'block';
-    selectedReportType = 'reporte_proyecto_consultor';
-    setupReporteProyectoConsultorTimeFilter();
-    initReporteProyectoConsultor();
-
-    } else if (type === 'reporte_remanente') {
-        document.getElementById('reporte-remanente-config').style.display = 'block';
-        selectedReportType = 'reporte_remanente';
-        initializeRemanenteMonth(); // Inicializar mes actual
     }
 }
-
 
 // Configurar filtros de tiempo para actividades
 function setupActividadesTimeFilter() {
@@ -2741,164 +2919,11 @@ function setupPagosTimeFilter() {
     });
 }
 
-// Configurar filtros de tiempo para pago consultor general
-function setupPagosGeneralTimeFilter() {
-    const timeFilter = document.getElementById('pagosGeneralTimeFilter');
-    const customDateRange = document.getElementById('pagosGeneralCustomDateRange');
-    
-    timeFilter.addEventListener('change', function() {
-        if (this.value === 'custom') {
-            customDateRange.style.display = 'block';
-        } else {
-            customDateRange.style.display = 'none';
-        }
-    });
-}
-
-// Configurar filtros de tiempo para pago consultor individual
-function setupPagosIndividualTimeFilter() {
-    const timeFilter = document.getElementById('pagosIndividualTimeFilter');
-    const customDateRange = document.getElementById('pagosIndividualCustomDateRange');
-    
-    timeFilter.addEventListener('change', function() {
-        if (this.value === 'custom') {
-            customDateRange.style.display = 'block';
-        } else {
-            customDateRange.style.display = 'none';
-        }
-    });
-}
-
-// Configurar filtros de tiempo para cliente soporte
-function setupClienteSoporteTimeFilter() {
-    const timeFilter = document.getElementById('clienteSoporteTimeFilter');
-    const customDateRange = document.getElementById('clienteSoporteCustomDateRange');
-    
-    timeFilter.addEventListener('change', function() {
-        if (this.value === 'custom') {
-            customDateRange.style.display = 'block';
-        } else {
-            customDateRange.style.display = 'none';
-        }
-    });
-}
-
-// Configurar filtros de tiempo para reporte proyecto
-function setupReporteProyectoTimeFilter() {
-    const timeFilter = document.getElementById('reporteProyectoTimeFilter');
-    const customDateRange = document.getElementById('reporteProyectoCustomDateRange');
-    
-    timeFilter.addEventListener('change', function() {
-        if (this.value === 'custom') {
-            customDateRange.style.display = 'block';
-        } else {
-            customDateRange.style.display = 'none';
-        }
-    });
-}
-
-// Configurar filtros de tiempo para reporte proyecto cliente
-function setupReporteProyectoClienteTimeFilter() {
-    const timeFilter = document.getElementById('reporteProyectoClienteTimeFilter');
-    const customDateRange = document.getElementById('reporteProyectoClienteCustomDateRange');
-    
-    timeFilter.addEventListener('change', function() {
-        if (this.value === 'custom') {
-            customDateRange.style.display = 'block';
-        } else {
-            customDateRange.style.display = 'none';
-        }
-    });
-}
-
-// Configurar filtros de tiempo para reporte proyecto consultor
-function setupReporteProyectoConsultorTimeFilter() {
-    const timeFilter = document.getElementById('reporteProyectoConsultorTimeFilter');
-    const customDateRange = document.getElementById('reporteProyectoConsultorCustomDateRange');
-    
-    timeFilter.addEventListener('change', function() {
-        if (this.value === 'custom') {
-            customDateRange.style.display = 'block';
-        } else {
-            customDateRange.style.display = 'none';
-        }
-    });
-}
-
 // Obtener reportes filtrados por fecha
 function getFilteredReports(timeFilterId, startDateId, endDateId) {
     const timeFilter = document.getElementById(timeFilterId);
     const startDate = document.getElementById(startDateId);
     const endDate = document.getElementById(endDateId);
-    
-    const reports = Object.values(currentData.reports);
-    const approvedReports = reports.filter(r => r.status === 'Aprobado');
-    
-    let filteredReports = [];
-    const now = new Date();
-    
-    switch(timeFilter.value) {
-        case 'week':
-            const startOfWeek = new Date(now);
-            startOfWeek.setDate(now.getDate() - now.getDay());
-            startOfWeek.setHours(0, 0, 0, 0);
-            
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 6);
-            endOfWeek.setHours(23, 59, 59, 999);
-            
-            filteredReports = approvedReports.filter(report => {
-                const reportDate = new Date(report.createdAt);
-                return reportDate >= startOfWeek && reportDate <= endOfWeek;
-            });
-            break;
-            
-        case 'month':
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            endOfMonth.setHours(23, 59, 59, 999);
-            
-            filteredReports = approvedReports.filter(report => {
-                const reportDate = new Date(report.createdAt);
-                return reportDate >= startOfMonth && reportDate <= endOfMonth;
-            });
-            break;
-            
-        case 'custom':
-            if (startDate && endDate && startDate.value && endDate.value) {
-                const customStart = new Date(startDate.value);
-                customStart.setHours(0, 0, 0, 0);
-                
-                const customEnd = new Date(endDate.value);
-                customEnd.setHours(23, 59, 59, 999);
-                
-                filteredReports = approvedReports.filter(report => {
-                    const reportDate = new Date(report.createdAt);
-                    return reportDate >= customStart && reportDate <= customEnd;
-                });
-            } else {
-                filteredReports = approvedReports;
-            }
-            break;
-            
-        default: // 'all'
-            filteredReports = approvedReports;
-            break;
-    }
-    
-    return filteredReports;
-}
-
-// Función helper para filtrar reportes por fecha (versión genérica)
-function getFilteredReportsByDate(timeFilterId, startDateId, endDateId) {
-    const timeFilter = document.getElementById(timeFilterId);
-    const startDate = document.getElementById(startDateId);
-    const endDate = document.getElementById(endDateId);
-    
-    if (!timeFilter) {
-        console.log('No hay filtro de tiempo, devolviendo todos los reportes');
-        return Object.values(currentData.reports).filter(r => r.status === 'Aprobado');
-    }
     
     const reports = Object.values(currentData.reports);
     const approvedReports = reports.filter(r => r.status === 'Aprobado');
@@ -3663,6 +3688,17 @@ function generatePagosReport() {
     }
 }
 
+// Funciones exportadas globalmente
+window.selectReportType = selectReportType;
+window.previewActividadesReport = previewActividadesReport;
+window.generateActividadesReport = generateActividadesReport;
+window.loadPagosConfiguration = loadPagosConfiguration;
+window.updateTariffCalculation = updateTariffCalculation;
+window.resetTariffs = resetTariffs;
+window.generatePagosReport = generatePagosReport;
+window.diagnosticAnimationState = diagnosticAnimationState;
+window.waitForAnimationComplete = waitForAnimationComplete;
+
 window.forceUpdateAfterAnimation = () => {
     const section = document.getElementById('crear-asignacion-section');
     if (section) {
@@ -3904,6 +3940,48 @@ function deleteGeneratedReportFromHistory(reportId) {
 
 console.log('✅ Funciones de generación de reportes cargadas correctamente');
 
+// === FUNCIONES EXPORTADAS GLOBALMENTE ===
+window.showSection = showSection;
+window.openUserModal = openUserModal;
+window.openCompanyModal = openCompanyModal;
+window.openSupportModal = openSupportModal;
+window.deleteSupport = deleteSupport;
+window.openProjectModal = openProjectModal;
+window.openModuleModal = openModuleModal;
+window.closeModal = closeModal;
+window.deleteUser = deleteUser;
+window.deleteCompany = deleteCompany;
+window.deleteProject = deleteProject;
+window.deleteModule = deleteModule;
+window.createAssignment = createAssignment;
+window.deleteAssignment = deleteAssignment;
+window.createProjectAssignment = createProjectAssignment;
+window.deleteProjectAssignment = deleteProjectAssignment;
+window.updateProjectAssignmentDropdowns = updateProjectAssignmentDropdowns;
+window.approveReport = approveReport;
+window.rejectReport = rejectReport;
+window.logout = logout;
+window.exportData = exportData;
+window.importData = importData;
+window.generateAdminReport = generateAdminReport;
+window.viewReport = viewReport;
+window.updateApprovedReportsList = updateApprovedReportsList;
+window.updateProjectsList = updateProjectsList;
+window.updateModulesList = updateModulesList;
+window.updateAssignmentsList = updateAssignmentsList;
+window.updateUsersList = updateUsersList;
+window.viewUserAssignments = viewUserAssignments;
+window.updateGeneratedReportsList = updateGeneratedReportsList;
+window.refreshGeneratedReportsList = refreshGeneratedReportsList;
+window.deleteGeneratedReportFromHistory = deleteGeneratedReportFromHistory;
+window.filterReportsByCategory = filterReportsByCategory;
+window.initializeReportsFilters = initializeReportsFilters;
+window.getReportCategory = getReportCategory;
+window.updateReportsListWithFilter = updateReportsListWithFilter;
+
+console.log('✅ Funciones de asignación de proyectos cargadas');
+console.log('✅ Funciones del administrador exportadas globalmente');
+
 // CÓDIGO TEMPORAL DE DIAGNÓSTICO
 window.addEventListener('load', function() {
     setTimeout(() => {
@@ -3927,849 +4005,3 @@ window.addEventListener('load', function() {
         
     }, 1000);
 });
-
-// Verificar funciones de reportes al cargar
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔍 Verificando funciones de reportes...');
-    console.log('loadReporteProyectoClienteConfiguration:', typeof window.loadReporteProyectoClienteConfiguration);
-    
-    // Si no existe, mostrar error
-    if (typeof window.loadReporteProyectoClienteConfiguration === 'undefined') {
-        console.error('❌ ERROR: Funciones de reporte no cargadas. Verificar scripts.');
-    }
-});
-
-
-// === SOLUCIÓN PARA BUCLE INFINITO Y SELECTOR DE CONSULTORES ===
-
-// 1. CORRECCIÓN CRÍTICA: Añadir al final de admin.js para evitar bucle infinito
-function fixInfiniteLoop() {
-    console.log('🛠️ Aplicando corrección para bucle infinito...');
-    
-    // Variable para controlar si ya estamos actualizando
-    window.isUpdatingData = false;
-    
-    // Función loadAllData corregida (reemplazar la existente)
-    window.loadAllDataFixed = function() {
-        if (window.isUpdatingData) {
-            console.log('⏸️ Actualización ya en progreso, omitiendo...');
-            return;
-        }
-        
-        window.isUpdatingData = true;
-        console.log('🔄 Cargando todos los datos...');
-        
-        try {
-            currentData.users = window.PortalDB.getUsers() || {};
-            currentData.companies = window.PortalDB.getCompanies() || {};
-            currentData.projects = window.PortalDB.getProjects() || {};
-            currentData.assignments = window.PortalDB.getAssignments() || {};
-            currentData.supports = window.PortalDB.getSupports() || {};
-            currentData.modules = window.PortalDB.getModules() || {};
-            currentData.reports = window.PortalDB.getReports() || {};
-            currentData.projectAssignments = window.PortalDB.getProjectAssignments() || {};
-            
-            updateUIFixed();
-        } catch (error) {
-            console.error('❌ Error cargando datos:', error);
-        } finally {
-            window.isUpdatingData = false;
-        }
-    };
-    
-    // Función updateUI corregida (reemplazar la existente)
-    window.updateUIFixed = function() {
-        if (window.isUpdatingData && window.lastUIUpdate && 
-            (Date.now() - window.lastUIUpdate) < 1000) {
-            console.log('⏸️ UI actualizada recientemente, omitiendo...');
-            return;
-        }
-        
-        console.log('🎨 === ACTUALIZANDO UI (CORREGIDA) ===');
-        window.lastUIUpdate = Date.now();
-        
-        try {
-            updateSidebarCounts();
-            updateCurrentSectionData();
-            console.log('✅ UI actualizada correctamente (sin bucle)');
-        } catch (error) {
-            console.error('❌ Error actualizando UI:', error);
-        }
-    };
-}
-
-// 2. CORRECCIÓN ESPECÍFICA PARA SELECTOR DE CONSULTORES
-function fixConsultorSelector() {
-    console.log('🛠️ Aplicando corrección para selector de consultores...');
-    
-    // Sobrescribir la función problemática
-    window.showConsultorSelectorFixed = function() {
-        const container = document.getElementById('reportPreviewContainerIndividual');
-        if (!container) {
-            console.error('❌ Contenedor reportPreviewContainerIndividual no encontrado');
-            return;
-        }
-        
-        console.log('🔍 Verificando datos de consultores...');
-        
-        // Verificar que PortalDB esté disponible
-        if (!window.PortalDB || typeof window.PortalDB.getUsers !== 'function') {
-            console.error('❌ PortalDB no disponible');
-            container.innerHTML = `
-                <div class="error-state">
-                    <div class="error-state-icon">❌</div>
-                    <div class="error-state-title">Error del Sistema</div>
-                    <div class="error-state-desc">Base de datos no disponible. Recarga la página.</div>
-                    <button class="btn btn-secondary" onclick="location.reload()">🔄 Recargar Página</button>
-                </div>`;
-            return;
-        }
-        
-        // Obtener consultores de forma segura
-        let consultores = [];
-        try {
-            const users = window.PortalDB.getUsers();
-            console.log('Datos de usuarios obtenidos:', users);
-            console.log('Tipo de users:', typeof users);
-            console.log('Es objeto:', users && typeof users === 'object');
-            
-            if (!users || typeof users !== 'object') {
-                throw new Error('No se pudieron obtener los usuarios o formato inválido');
-            }
-            
-            const userValues = Object.values(users);
-            console.log('Valores de usuarios:', userValues);
-            console.log('Cantidad de usuarios totales:', userValues.length);
-            
-            consultores = userValues.filter(user => {
-                const isValidUser = user && 
-                                  typeof user === 'object' && 
-                                  user.role === 'consultor' && 
-                                  user.isActive !== false &&
-                                  user.name && 
-                                  user.id;
-                
-                if (user) {
-                    console.log(`Usuario ${user.id}: role=${user.role}, isActive=${user.isActive}, válido=${isValidUser}`);
-                }
-                
-                return isValidUser;
-            });
-            
-            console.log('Consultores filtrados:', consultores);
-            console.log('Cantidad de consultores:', consultores.length);
-            
-        } catch (error) {
-            console.error('❌ Error obteniendo consultores:', error);
-            container.innerHTML = `
-                <div class="error-state">
-                    <div class="error-state-icon">❌</div>
-                    <div class="error-state-title">Error cargando datos</div>
-                    <div class="error-state-desc">
-                        No se pudieron cargar los consultores.<br>
-                        <small>${error.message}</small>
-                    </div>
-                    <button class="btn btn-secondary" onclick="showConsultorSelectorFixed()">🔄 Reintentar</button>
-                    <button class="btn btn-primary" onclick="crearConsultorPrueba()">👤 Crear Consultor de Prueba</button>
-                </div>`;
-            return;
-        }
-        
-        // Si no hay consultores, mostrar opción para crear
-        if (consultores.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">👤</div>
-                    <div class="empty-state-title">No hay consultores disponibles</div>
-                    <div class="empty-state-desc">
-                        No se encontraron consultores activos en el sistema.<br>
-                        <small>Debes crear consultores desde la sección "Usuarios" o usar el botón de abajo.</small>
-                    </div>
-                    <div style="margin-top: 20px;">
-                        <button class="btn btn-primary" onclick="crearConsultorPrueba()">👤 Crear Consultor de Prueba</button>
-                        <button class="btn btn-secondary" onclick="showConsultorSelectorFixed()">🔄 Actualizar</button>
-                    </div>
-                </div>`;
-            return;
-        }
-        
-        // Generar HTML del selector con consultores
-        let html = `
-            <div class="consultor-selector-section">
-                <div class="section-header">
-                    <h3 class="section-title">👤 Seleccionar Consultor</h3>
-                    <p class="section-description">
-                        Elija el consultor para generar su reporte de pagos individual.
-                        <br><small style="color: #28a745;">✅ ${consultores.length} consultor(es) disponible(s)</small>
-                    </p>
-                </div>
-                
-                <div class="selector-form">
-                    <div class="form-group">
-                        <label for="consultorSelector">Consultor:</label>
-                        <select id="consultorSelector" class="form-select" onchange="onConsultorSelectedFixed()">
-                            <option value="">-- Seleccione un consultor --</option>`;
-        
-        // Agregar opciones de consultores
-        consultores.forEach(consultor => {
-            const displayName = `${consultor.id} - ${consultor.name}`;
-            html += `<option value="${consultor.id}">${displayName}</option>`;
-        });
-        
-        html += `
-                        </select>
-                    </div>
-                    
-                    <div class="form-group" style="text-align: center; margin-top: 20px;">
-                        <button type="button" class="btn btn-primary" onclick="loadPagosIndividualConfigurationFixed()" disabled id="generateBtn">
-                            📊 Generar Vista Previa
-                        </button>
-                    </div>
-                    
-                    <div class="debug-info" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 0.8rem; color: #666;">
-                        <strong>Debug Info:</strong> ${consultores.length} consultores cargados | Base de datos: ✅ Funcionando
-                    </div>
-                </div>
-            </div>`;
-        
-        container.innerHTML = html;
-        console.log('✅ Selector de consultor generado correctamente');
-    };
-    
-    // Función mejorada para manejar selección
-    window.onConsultorSelectedFixed = function() {
-        const consultorSelect = document.getElementById('consultorSelector');
-        const generateBtn = document.getElementById('generateBtn');
-        
-        if (!consultorSelect || !generateBtn) {
-            console.error('❌ Elementos del selector no encontrados');
-            return;
-        }
-        
-        const selectedValue = consultorSelect.value;
-        console.log('Consultor seleccionado:', selectedValue);
-        
-        if (selectedValue) {
-            generateBtn.disabled = false;
-            generateBtn.classList.remove('btn-disabled');
-            selectedConsultorId = selectedValue;
-            
-            // Log de información del consultor
-            try {
-                const users = window.PortalDB.getUsers();
-                const consultor = users[selectedValue];
-                if (consultor) {
-                    console.log('✅ Datos del consultor seleccionado:', consultor);
-                }
-            } catch (error) {
-                console.error('Error obteniendo datos del consultor:', error);
-            }
-        } else {
-            generateBtn.disabled = true;
-            generateBtn.classList.add('btn-disabled');
-            selectedConsultorId = null;
-        }
-    };
-    
-    // Función corregida para cargar configuración
-    window.loadPagosIndividualConfigurationFixed = function() {
-        console.log('👤 Cargando configuración de Pago Consultor (Individual) - CORREGIDA...');
-        
-        // NO llamar loadAllData aquí para evitar bucle
-        const consultorSelect = document.getElementById('consultorSelector');
-        if (!consultorSelect || !consultorSelect.value) {
-            console.log('No hay consultor seleccionado, mostrando selector...');
-            showConsultorSelectorFixed();
-            return;
-        }
-        
-        selectedConsultorId = consultorSelect.value;
-        console.log('Consultor seleccionado ID:', selectedConsultorId);
-        
-        try {
-            // Obtener datos directamente de PortalDB (sin loadAllData)
-            const assignments = window.PortalDB.getAssignments();
-            const users = window.PortalDB.getUsers();
-            const companies = window.PortalDB.getCompanies();
-            const modules = window.PortalDB.getModules();
-            const supports = window.PortalDB.getSupports();
-            const reports = window.PortalDB.getReports();
-
-            // Verificar que el consultor existe
-            const selectedConsultor = users[selectedConsultorId];
-            if (!selectedConsultor) {
-                window.NotificationUtils.error('Consultor no encontrado');
-                return [];
-            }
-
-            console.log('✅ Consultor encontrado:', selectedConsultor);
-
-            // Construir datos de prueba por ahora (luego usar datos reales)
-            const reportData = [
-                {
-                    idEmpresa: '0001',
-                    consultor: selectedConsultor.name,
-                    soporte: 'Implementación',
-                    modulo: 'FI',
-                    tiempo: 40,
-                    tarifa: 850,
-                    total: 34000,
-                    _consultorId: selectedConsultorId,
-                    _companyId: '0001',
-                    _moduleId: 'FI',
-                    _supportId: '0001'
-                },
-                {
-                    idEmpresa: '0002',
-                    consultor: selectedConsultor.name,
-                    soporte: 'Soporte Técnico',
-                    modulo: 'SD',
-                    tiempo: 25,
-                    tarifa: 850,
-                    total: 21250,
-                    _consultorId: selectedConsultorId,
-                    _companyId: '0002',
-                    _moduleId: 'SD',
-                    _supportId: '0002'
-                }
-            ];
-            
-            currentPagosIndividualData = reportData;
-            
-            // Llamar función de mostrar tabla (sin actualizar toda la UI)
-            if (typeof displayPagosIndividualTable === 'function') {
-                displayPagosIndividualTable(reportData);
-            } else {
-                console.error('❌ Función displayPagosIndividualTable no disponible');
-            }
-            
-            console.log('✅ Configuración cargada correctamente');
-            return reportData;
-            
-        } catch (error) {
-            console.error('❌ Error cargando configuración:', error);
-            window.NotificationUtils.error('Error cargando datos del reporte');
-            return [];
-        }
-    };
-}
-
-// 3. FUNCIÓN PARA CREAR CONSULTOR DE PRUEBA
-window.crearConsultorPrueba = function() {
-    console.log('👤 Creando consultor de prueba...');
-    
-    try {
-        const userData = {
-            name: 'Consultor de Prueba',
-            email: 'prueba@arvic.com',
-            role: 'consultor'
-        };
-
-        const result = window.PortalDB.createUser(userData);
-        
-        if (result.success) {
-            console.log('✅ Consultor de prueba creado:', result.user);
-            window.NotificationUtils.success(`Consultor de prueba creado!\nID: ${result.user.id}\nNombre: ${result.user.name}`);
-            
-            // Actualizar selector
-            setTimeout(() => {
-                showConsultorSelectorFixed();
-            }, 1000);
-        } else {
-            console.error('❌ Error creando consultor de prueba:', result.message);
-            window.NotificationUtils.error('Error creando consultor de prueba: ' + result.message);
-        }
-    } catch (error) {
-        console.error('❌ Error en crearConsultorPrueba:', error);
-        window.NotificationUtils.error('Error del sistema al crear consultor de prueba');
-    }
-};
-
-// 4. FUNCIÓN PRINCIPAL PARA APLICAR TODAS LAS CORRECCIONES
-function aplicarCorrecciones() {
-    console.log('🛠️ === APLICANDO CORRECCIONES COMPLETAS ===');
-    
-    // Aplicar corrección del bucle infinito
-    fixInfiniteLoop();
-    
-    // Aplicar corrección del selector de consultores
-    fixConsultorSelector();
-    
-    // Sobrescribir funciones problemáticas
-    window.loadAllData = window.loadAllDataFixed;
-    window.updateUI = window.updateUIFixed;
-    window.showConsultorSelector = window.showConsultorSelectorFixed;
-    window.onConsultorSelected = window.onConsultorSelectedFixed;
-    window.loadPagosIndividualConfiguration = window.loadPagosIndividualConfigurationFixed;
-    
-    console.log('✅ Todas las correcciones aplicadas');
-    console.log('📋 Funciones disponibles:');
-    console.log('   - aplicarCorrecciones() - Aplicar todas las correcciones');
-    console.log('   - showConsultorSelectorFixed() - Mostrar selector mejorado');
-    console.log('   - crearConsultorPrueba() - Crear consultor de prueba');
-    console.log('   - verificarDatos() - Verificar estado de datos');
-}
-
-// === FUNCIONES SIMPLIFICADAS PARA REPORTE REMANENTE ===
-
-// Función para manejar selección de mes
-function onRemanenteMonthSelected() {
-    const monthInput = document.getElementById('remanenteMonthSelector');
-    const generateBtn = document.getElementById('generateRemanenteSimpleBtn');
-    
-    if (monthInput && monthInput.value && generateBtn) {
-        generateBtn.disabled = false;
-        generateBtn.classList.remove('btn-disabled');
-        
-        // Mostrar información del período seleccionado
-        const [year, month] = monthInput.value.split('-');
-        const daysInMonth = new Date(year, month, 0).getDate();
-        const weeks = daysInMonth <= 28 ? 4 : 5;
-        
-        const monthNames = [
-            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-        ];
-        
-        console.log(`📅 Período seleccionado: ${monthNames[month-1]} ${year} (${weeks} semanas)`);
-        
-        // Limpiar vista previa anterior
-        const container = document.getElementById('reportPreviewContainerRemanenteSimple');
-        if (container) {
-            container.innerHTML = '';
-        }
-    } else if (generateBtn) {
-        generateBtn.disabled = true;
-        generateBtn.classList.add('btn-disabled');
-    }
-}
-
-// Función para generar datos de ejemplo cuando no hay datos reales
-function generateSampleRemanenteData(monthValue) {
-    const [year, month] = monthValue.split('-');
-    const monthNames = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
-    
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const weeks = daysInMonth <= 28 ? 4 : 5;
-    
-    // Configurar datos de ejemplo para el sistema
-    const sampleModules = {
-        'SD': {
-            name: 'SD (Sales & Distribution)',
-            totalHours: 0,
-            weeks: {}
-        },
-        'FI': {
-            name: 'FI (Financial Accounting)', 
-            totalHours: 0,
-            weeks: {}
-        },
-        'MM': {
-            name: 'MM (Materials Management)',
-            totalHours: 0,
-            weeks: {}
-        }
-    };
-    
-    // Generar datos para cada módulo y semana
-    Object.keys(sampleModules).forEach(moduleKey => {
-        let totalHours = 0;
-        for (let week = 1; week <= weeks; week++) {
-            const hours = Math.floor(Math.random() * 25) + 15; // 15-40 horas
-            const tariff = 850;
-            sampleModules[moduleKey].weeks[week] = {
-                tiempo: hours,
-                tarifa: tariff,
-                total: hours * tariff
-            };
-            totalHours += hours;
-        }
-        sampleModules[moduleKey].totalHours = totalHours;
-    });
-    
-    // Configurar datos globales
-    window.currentRemanenteData = {
-        period: {
-            year: parseInt(year),
-            month: parseInt(month),
-            daysInMonth: daysInMonth,
-            weeks: weeks
-        },
-        filterType: 'soporte',
-        filterId: 'example',
-        modules: sampleModules
-    };
-    
-    // Mostrar vista previa con datos de ejemplo
-    const container = document.getElementById('reportPreviewContainerRemanenteSimple');
-    if (container && typeof displayRemanenteMatrix === 'function') {
-        displayRemanenteMatrix(window.currentRemanenteData);
-    } else {
-        // Vista previa básica
-        container.innerHTML = `
-            <div class="report-preview-section">
-                <h3 style="color: #16a34a; text-align: center; margin-bottom: 20px;">
-                    📊 Datos de Ejemplo - ${monthNames[month-1]} ${year}
-                </h3>
-                <div style="background: #f0fdf4; border: 2px solid #22c55e; border-radius: 8px; padding: 20px;">
-                    <p style="color: #15803d; margin-bottom: 15px;">
-                        ✅ Datos de ejemplo generados correctamente
-                    </p>
-                    <ul style="color: #16a34a; margin-left: 20px;">
-                        <li>Módulos: SD, FI, MM</li>
-                        <li>Período: ${weeks} semanas</li>
-                        <li>Datos: Horas y tarifas simuladas</li>
-                    </ul>
-                    <div style="text-align: center; margin-top: 20px;">
-                        <button type="button" class="btn btn-success" onclick="generateRemanenteExcel('${month}', '${year}')">
-                            📊 Generar Excel con Datos de Ejemplo
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    window.NotificationUtils.success('Datos de ejemplo generados. Ahora puede generar el Excel.');
-}
-
-// Función para limpiar vista previa
-function clearRemanentePreview() {
-    const container = document.getElementById('reportPreviewContainerRemanenteSimple');
-    if (container) {
-        container.innerHTML = '';
-    }
-    window.currentRemanenteData = null;
-    window.NotificationUtils.info('Vista previa limpiada');
-}
-
-// Función para cargar configuración real del reporte remanente
-function loadRemanenteSimpleConfiguration() {
-    const monthInput = document.getElementById('remanenteMonthSelector');
-    
-    if (!monthInput || !monthInput.value) {
-        window.NotificationUtils.error('Por favor seleccione un mes');
-        return;
-    }
-    
-    try {
-        console.log('📊 Cargando datos reales del sistema...');
-        
-        // Crear elementos temporales para el sistema original
-        const tempContainer = document.createElement('div');
-        tempContainer.style.display = 'none';
-        tempContainer.innerHTML = `
-            <input type="month" id="periodSelector" value="${monthInput.value}">
-            <select id="filterTypeSelector">
-                <option value="soporte" selected>Por Soporte</option>
-            </select>
-            <select id="filterValueSelector">
-                <option value="general" selected>Soporte General</option>
-            </select>
-            <div id="reportPreviewContainerRemanente"></div>
-        `;
-        
-        document.body.appendChild(tempContainer);
-        
-        // Llamar a la función original del sistema para cargar datos reales
-        if (typeof loadRemanenteConfiguration === 'function') {
-            loadRemanenteConfiguration();
-            
-            // Mover el contenido generado a nuestro contenedor
-            setTimeout(() => {
-                const originalContainer = document.getElementById('reportPreviewContainerRemanente');
-                const newContainer = document.getElementById('reportPreviewContainerRemanenteSimple');
-                
-                if (originalContainer && newContainer && originalContainer.innerHTML.trim()) {
-                    newContainer.innerHTML = originalContainer.innerHTML;
-                    window.NotificationUtils.success('Datos reales del sistema cargados correctamente');
-                } else {
-                    // Si no hay datos reales, mostrar mensaje informativo
-                    newContainer.innerHTML = `
-                        <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 12px; padding: 25px; text-align: center; margin: 20px 0;">
-                            <div style="font-size: 48px; margin-bottom: 15px;">⚠️</div>
-                            <h3 style="color: #92400e; margin-bottom: 15px;">Sin Datos en el Sistema</h3>
-                            <p style="color: #a16207; margin-bottom: 15px;">
-                                No se encontraron datos reales en el sistema para el período seleccionado.
-                            </p>
-                            <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
-                                Para generar reportes reales, necesita tener:<br>
-                                • Módulos configurados<br>
-                                • Consultores con asignaciones<br>
-                                • Reportes de horas aprobados
-                            </p>
-                            <button type="button" class="btn" onclick="generateSampleRemanenteData('${monthInput.value}')" 
-                                    style="background: #f59e0b; color: white; margin-right: 10px;">
-                                📊 Generar Datos de Ejemplo
-                            </button>
-                            <button type="button" class="btn btn-secondary" onclick="clearRemanentePreview()">
-                                🔄 Limpiar Vista
-                            </button>
-                        </div>
-                    `;
-                }
-                
-                // Limpiar elementos temporales
-                document.body.removeChild(tempContainer);
-                
-            }, 500);
-            
-        } else {
-            throw new Error('Sistema de reportes remanente no disponible');
-        }
-        
-    } catch (error) {
-        console.error('Error cargando configuración:', error);
-        window.NotificationUtils.error('Error: ' + error.message);
-    }
-}
-
-// Función simplificada para generar Excel
-function generateRemanenteExcel(month, year) {
-    // Verificar que tenemos datos
-    if (!window.currentRemanenteData) {
-        window.NotificationUtils.error('Primero debe cargar los datos del reporte');
-        return;
-    }
-    
-    try {
-        // Llamar directamente a la función del sistema
-        if (typeof generateRemanenteReport === 'function') {
-            generateRemanenteReport();
-        } else {
-            window.NotificationUtils.error('Función de generación no disponible');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        window.NotificationUtils.error('Error al generar Excel');
-    }
-}
-
-// Función para generar Excel directamente
-function generateDirectRemanenteExcel(month, year, monthNames, matrixData) {
-    try {
-        const fileName = `Reporte_Remanente_${monthNames[month-1]}_${year}.xlsx`;
-        
-        // Usar el sistema de Excel existente si está disponible
-        if (typeof window.ExcelUtils !== 'undefined' && window.ExcelUtils.createWorkbook) {
-            
-            const workbook = window.ExcelUtils.createWorkbook();
-            const wsData = [];
-            
-            // Header del reporte
-            wsData.push(['REPORTE DE HORAS REMANENTES']);
-            wsData.push(['']);
-            wsData.push([`PERÍODO: ${monthNames[month-1]} ${year}`]);
-            wsData.push(['GENERADO POR: Sistema Portal Consultor']);
-            wsData.push([`FECHA: ${new Date().toLocaleDateString()}`]);
-            wsData.push(['']);
-            
-            // Headers de tabla
-            const weeks = window.currentRemanenteData.period.weeks;
-            const headers = ['MÓDULO'];
-            for (let week = 1; week <= weeks; week++) {
-                headers.push(`SEMANA ${week}`);
-            }
-            headers.push('TOTAL RESTANTE');
-            wsData.push(headers);
-            
-            // Datos de la matriz
-            matrixData.forEach(moduleData => {
-                const row = [moduleData.moduleName];
-                let totalRemaining = 0;
-                
-                for (let week = 1; week <= weeks; week++) {
-                    const weekData = moduleData.weeks[`semana${week}`];
-                    const remaining = weekData ? weekData.remaining : 0;
-                    row.push(remaining);
-                    totalRemaining += remaining;
-                }
-                row.push(totalRemaining);
-                wsData.push(row);
-            });
-            
-            // Crear worksheet
-            const worksheet = window.ExcelUtils.createWorksheet(wsData);
-            window.ExcelUtils.addWorksheet(workbook, worksheet, 'Reporte Remanente');
-            
-            // Descargar
-            window.ExcelUtils.downloadWorkbook(workbook, fileName);
-            
-            window.NotificationUtils.success(`Excel generado y descargado: ${fileName}`);
-            
-        } else {
-            // Método de respaldo
-            window.NotificationUtils.warning('Sistema Excel no disponible. Generando reporte básico...');
-            generateBasicRemanenteExcel(month, year, monthNames);
-        }
-        
-    } catch (error) {
-        console.error('Error en generateDirectRemanenteExcel:', error);
-        generateBasicRemanenteExcel(month, year, monthNames);
-    }
-}
-
-// Función de respaldo para generar Excel básico
-function generateBasicRemanenteExcel(month, year, monthNames) {
-    try {
-        // Crear datos básicos para el Excel
-        const fileName = `Reporte_Remanente_${monthNames[month-1]}_${year}.xlsx`;
-        
-        // Preparar datos para Excel usando XLSX (si está disponible)
-        if (typeof XLSX !== 'undefined') {
-            const wsData = [];
-            
-            // Header
-            wsData.push(['REPORTE DE HORAS REMANENTES']);
-            wsData.push(['']);
-            wsData.push([`PERÍODO: ${monthNames[month-1]} ${year}`]);
-            wsData.push(['GENERADO POR: Sistema de Reportes']);
-            wsData.push(['']);
-            
-            // Headers de tabla
-            wsData.push(['MÓDULO', 'SEMANA 1', 'SEMANA 2', 'SEMANA 3', 'SEMANA 4', 'TOTAL']);
-            
-            // Datos de ejemplo (en producción vendrían de la base de datos)
-            const modules = ['SD (Sales & Distribution)', 'MM (Materials Management)', 'FI (Financial Accounting)'];
-            modules.forEach(module => {
-                wsData.push([module, 40, 35, 42, 38, 155]);
-            });
-            
-            // Crear workbook
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-            
-            // Agregar worksheet al workbook
-            XLSX.utils.book_append_sheet(wb, ws, 'Reporte Remanente');
-            
-            // Descargar archivo
-            XLSX.writeFile(wb, fileName);
-            
-            window.NotificationUtils.success(`Excel generado: ${fileName}`);
-        } else {
-            // Si no hay XLSX disponible, simular descarga
-            window.NotificationUtils.warning('Librería Excel no disponible. Simulando descarga...');
-            
-            setTimeout(() => {
-                window.NotificationUtils.success(`Archivo ${fileName} generado correctamente`);
-            }, 1000);
-        }
-        
-    } catch (error) {
-        console.error('Error en generateBasicRemanenteExcel:', error);
-        window.NotificationUtils.error('Error al generar el archivo básico');
-    }
-}
-
-// Función para restaurar datos (placeholder)
-function resetRemanenteData() {
-    if (confirm('¿Está seguro de que desea restaurar los datos originales?\nEsta acción no se puede deshacer.')) {
-        window.NotificationUtils.success('Datos del reporte restaurados');
-        
-        // Limpiar la vista previa
-        const container = document.getElementById('reportPreviewContainerRemanenteSimple');
-        if (container) {
-            container.innerHTML = '';
-        }
-    }
-}
-
-// Inicializar el mes actual cuando se cargue la configuración
-function initializeRemanenteMonth() {
-    const monthInput = document.getElementById('remanenteMonthSelector');
-    if (monthInput) {
-        const now = new Date();
-        const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-        monthInput.value = currentMonth;
-    }
-}
-
-// 5. FUNCIÓN DE VERIFICACIÓN DE DATOS
-window.verificarDatos = function() {
-    console.log('🔍 === VERIFICACIÓN DE DATOS ===');
-    
-    if (!window.PortalDB) {
-        console.error('❌ PortalDB no disponible');
-        return false;
-    }
-    
-    const users = window.PortalDB.getUsers();
-    const consultores = Object.values(users || {}).filter(u => 
-        u && u.role === 'consultor' && u.isActive !== false
-    );
-    
-    console.log('📊 Resumen de datos:');
-    console.log(`   - Total usuarios: ${Object.keys(users || {}).length}`);
-    console.log(`   - Total consultores: ${consultores.length}`);
-    console.log('   - Consultores:', consultores.map(c => `${c.id} - ${c.name}`));
-    
-    return consultores.length > 0;
-};
-
-// Verificar que las funciones existan antes de exportarlas
-if (typeof showConsultorSelectorIndividual !== 'undefined') {
-    window.showConsultorSelectorIndividual = showConsultorSelectorIndividual;
-}
-if (typeof onConsultorSelectedIndividual !== 'undefined') {
-    window.onConsultorSelectedIndividual = onConsultorSelectedIndividual;
-}
-if (typeof generatePagosIndividualPreview !== 'undefined') {
-    window.generatePagosIndividualPreview = generatePagosIndividualPreview;
-}
-
-// === FORZAR EXPORTACIONES AL FINAL ===
-setTimeout(() => {
-    console.log('🔧 Forzando exportaciones correctas...');
-    
-    if (window.showConsultorSelectorIndividual && window.onConsultorSelectedIndividual) {
-        console.log('✅ Funciones ya están disponibles');
-    } else {
-        // Forzar la carga desde el archivo individual
-        if (window.PagosIndividualReport) {
-            window.showConsultorSelectorIndividual = window.PagosIndividualReport.showSelector;
-            window.onConsultorSelectedIndividual = window.PagosIndividualReport.onConsultorSelected;
-        }
-        console.log('🔄 Funciones forzadas');
-    }
-}, 1000);
-
-// EJECUTAR AUTOMÁTICAMENTE LAS CORRECCIONES
-aplicarCorrecciones();
-
-// Funciones exportadas globalmente
-window.selectReportType = selectReportType;
-window.previewActividadesReport = previewActividadesReport;
-window.generateActividadesReport = generateActividadesReport;
-window.loadPagosConfiguration = loadPagosConfiguration;
-window.updateTariffCalculation = updateTariffCalculation;
-window.resetTariffs = resetTariffs;
-window.generatePagosReport = generatePagosReport;
-window.diagnosticAnimationState = diagnosticAnimationState;
-window.waitForAnimationComplete = waitForAnimationComplete;
-
-// Funciones del nuevo reporte
-window.loadPagosGeneralConfiguration = loadPagosGeneralConfiguration;
-window.generatePagosGeneralReport = generatePagosGeneralReport;
-window.updatePagosGeneralRow = updatePagosGeneralRow;
-window.resetPagosGeneralData = resetPagosGeneralData;
-
-// Funciones del reporte individual
-window.loadPagosIndividualConfiguration = loadPagosIndividualConfiguration;
-window.generatePagosIndividualReport = generatePagosIndividualReport;
-window.updatePagosIndividualRow = updatePagosIndividualRow;
-window.resetPagosIndividualData = resetPagosIndividualData;
-window.showConsultorSelectorIndividual = showConsultorSelectorIndividual;
-window.onConsultorSelectedIndividual = onConsultorSelectedIndividual;
-window.generatePagosIndividualPreview = generatePagosIndividualPreview;
-
-
-// Funciones del reporte Cliente Soporte
-window.loadClienteSoporteConfiguration = loadClienteSoporteConfiguration;
-window.generateClienteSoporteReport = generateClienteSoporteReport;
-window.updateClienteSoporteRow = updateClienteSoporteRow;
-window.resetClienteSoporteData = resetClienteSoporteData;
-window.showClienteSelector = showClienteSelector;
-window.handleClienteSelection = handleClienteSelection;

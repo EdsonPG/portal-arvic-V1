@@ -206,8 +206,25 @@ function loadUserAssignments() {
             return;
         }
         
-        // Obtener TODAS las asignaciones activas del usuario
-        userAssignments = window.PortalDB.getUserAssignments(currentUser.id);
+        console.log('🔄 Cargando asignaciones para usuario:', currentUser.id);
+        
+        // 🟦 OBTENER ASIGNACIONES DE SOPORTE
+        const supportAssignments = window.PortalDB.getUserAssignments(currentUser.id);
+        
+        // 🟩 OBTENER ASIGNACIONES DE PROYECTO
+        const allProjectAssignments = window.PortalDB.getProjectAssignments ? 
+            Object.values(window.PortalDB.getProjectAssignments()) : [];
+        const projectAssignments = allProjectAssignments.filter(assignment => 
+            assignment.consultorId === currentUser.id && assignment.isActive
+        );
+        
+        // Combinar ambos tipos en el array global
+        userAssignments = [
+            ...supportAssignments.map(a => ({...a, assignmentType: 'support'})),
+            ...projectAssignments.map(a => ({...a, assignmentType: 'project'}))
+        ];
+        
+        console.log(`📊 Encontradas: ${supportAssignments.length} asignaciones de soporte, ${projectAssignments.length} asignaciones de proyecto`);
         
         updateAssignmentsList();
         updateAssignmentsCount();
@@ -237,45 +254,91 @@ function updateAssignmentsList() {
         container.innerHTML = '';
         
         userAssignments.forEach(assignment => {
-            const company = window.PortalDB.getCompany(assignment.companyId);
-            const support = window.PortalDB.getSupport(assignment.supportId); // Cambiar de getTask
-            const module = window.PortalDB.getModule(assignment.moduleId);
-            
-            // Obtener reportes de esta asignación
-            const assignmentReports = window.PortalDB.getReportsByAssignment(assignment.id);
-            const totalHours = assignmentReports.reduce((sum, r) => sum + (parseFloat(r.hours) || 0), 0);
-            
             const assignmentDiv = document.createElement('div');
-            assignmentDiv.className = 'assignment-card';
-            assignmentDiv.innerHTML = `
-                <div class="assignment-header">
-                    <h3 style="margin: 0; color: #2c3e50;">🏢 ${company?.name || 'Empresa no encontrada'}</h3>
-                    <span class="assignment-id">${assignment.id.slice(-6)}</span>
-                </div>
+            assignmentDiv.className = `assignment-card ${assignment.assignmentType}-assignment`;
+            
+            // Diferenciar entre soporte y proyecto
+            if (assignment.assignmentType === 'support') {
+                // 🟦 ASIGNACIÓN DE SOPORTE
+                const company = window.PortalDB.getCompany(assignment.companyId);
+                const support = window.PortalDB.getSupport(assignment.supportId);
+                const module = window.PortalDB.getModule(assignment.moduleId);
                 
-                <div class="assignment-details">
-                    <p><strong>📞 Soporte:</strong> ${support?.name || 'Soporte no encontrado'}</p>
-                    <p><strong>🧩 Módulo:</strong> ${module?.name || 'Módulo no encontrado'}</p>
-                    <p><strong>📊 Reportes:</strong> ${assignmentReports.length} reportes | <strong>⏰ Total:</strong> ${totalHours.toFixed(1)} hrs</p>
-                    <p><small>📅 Asignado: ${window.DateUtils.formatDate(assignment.createdAt)}</small></p>
-                </div>
+                // Obtener reportes de esta asignación
+                const assignmentReports = window.PortalDB.getReportsByAssignment(assignment.id);
+                const totalHours = assignmentReports.reduce((sum, r) => sum + (parseFloat(r.hours) || 0), 0);
                 
-                <div class="assignment-actions">
-                    <button class="btn btn-primary" onclick="openCreateReportModal('${assignment.id}')">
-                        📝 Crear Reporte
-                    </button>
-                    <button class="btn btn-secondary" onclick="viewAssignmentReports('${assignment.id}')">
-                        📊 Ver Reportes (${assignmentReports.length})
-                    </button>
-                </div>
-            `;
+                assignmentDiv.innerHTML = `
+                    <div class="assignment-header">
+                        <h3 style="margin: 0; color: #2c3e50;">
+                            🏢 ${company?.name || 'Empresa no encontrada'}
+                            <span class="assignment-type-badge support-badge">📞 SOPORTE</span>
+                        </h3>
+                        <span class="assignment-id">${assignment.id.slice(-6)}</span>
+                    </div>
+                    
+                    <div class="assignment-details">
+                        <p><strong>📞 Soporte:</strong> ${support?.name || 'Soporte no encontrado'}</p>
+                        <p><strong>🧩 Módulo:</strong> ${module?.name || 'Módulo no encontrado'}</p>
+                        <p><strong>📊 Reportes:</strong> ${assignmentReports.length} reportes | <strong>⏰ Total:</strong> ${totalHours.toFixed(1)} hrs</p>
+                        <p><small>📅 Asignado: ${window.DateUtils.formatDate(assignment.createdAt)}</small></p>
+                    </div>
+                    
+                    <div class="assignment-actions">
+                        <button class="btn btn-primary" onclick="openCreateReportModal('${assignment.id}')">
+                            📝 Crear Reporte
+                        </button>
+                        <button class="btn btn-secondary" onclick="viewAssignmentReports('${assignment.id}')">
+                            📊 Ver Reportes (${assignmentReports.length})
+                        </button>
+                    </div>
+                `;
+            } else {
+                // 🟩 ASIGNACIÓN DE PROYECTO
+                const company = window.PortalDB.getCompany(assignment.companyId);
+                const project = window.PortalDB.getProject(assignment.projectId);
+                const module = window.PortalDB.getModule(assignment.moduleId);
+                
+                assignmentDiv.innerHTML = `
+                    <div class="assignment-header">
+                        <h3 style="margin: 0; color: #2c3e50;">
+                            🏢 ${company?.name || 'Empresa no encontrada'}
+                            <span class="assignment-type-badge project-badge">🎯 PROYECTO</span>
+                        </h3>
+                        <span class="assignment-id">${assignment.id.slice(-8)}</span>
+                    </div>
+                    
+                    <div class="assignment-details">
+                        <p><strong>🎯 Proyecto:</strong> ${project?.name || 'Proyecto no encontrado'}</p>
+                        <p><strong>🧩 Módulo:</strong> ${module?.name || 'Módulo no encontrado'}</p>
+                        <p><strong>📋 Descripción:</strong> ${project?.description || 'Sin descripción'}</p>
+                        <p><strong>📊 Estado:</strong> <span class="status-badge">${project?.status || 'No definido'}</span></p>
+                        <p><small>📅 Asignado: ${window.DateUtils.formatDate(assignment.createdAt)}</small></p>
+                    </div>
+                    
+                    <div class="assignment-actions">
+                        <button class="btn btn-success" onclick="openProjectReportModal('${assignment.id}')">
+                            📝 Reporte de Proyecto
+                        </button>
+                        <button class="btn btn-info" onclick="viewProjectDetails('${assignment.id}')">
+                            ℹ️ Detalles del Proyecto
+                        </button>
+                    </div>
+                `;
+            }
             
             container.appendChild(assignmentDiv);
         });
         
     } catch (error) {
         console.error('Error en updateAssignmentsList:', error);
-        showError('Error al actualizar lista de asignaciones: ' + error.message);
+        container.innerHTML = `
+            <div class="error-state">
+                <div class="error-icon">⚠️</div>
+                <div class="error-title">Error al cargar asignaciones</div>
+                <div class="error-desc">Por favor, recarga la página</div>
+            </div>
+        `;
     }
 }
 
@@ -302,18 +365,35 @@ function openCreateReportModal(assignmentId) {
         }
         
         const company = window.PortalDB.getCompany(assignment.companyId);
-        const support = window.PortalDB.getSupport(assignment.supportId); // Cambiar de getTask
         const module = window.PortalDB.getModule(assignment.moduleId);
         
         // Mostrar información de la asignación seleccionada
         const assignmentInfoElement = document.getElementById('selectedAssignmentInfo');
         if (assignmentInfoElement) {
-            assignmentInfoElement.innerHTML = `
-                <h4 style="margin: 0 0 10px 0; color: #2c3e50;">📋 Información de la Asignación</h4>
-                <p><strong>🏢 Empresa:</strong> ${company?.name || 'No encontrada'}</p>
-                <p><strong>📞 Soporte:</strong> ${support?.name || 'No encontrado'}</p>
-                <p style="margin-bottom: 0;"><strong>🧩 Módulo:</strong> ${module?.name || 'No encontrado'}</p>
-            `;
+            let assignmentDetails = '';
+            
+            // 🔄 DETECTAR TIPO DE ASIGNACIÓN Y MOSTRAR INFORMACIÓN CORRECTA
+            if (assignment.assignmentType === 'project') {
+                // 🟩 ASIGNACIÓN DE PROYECTO
+                const project = window.PortalDB.getProject(assignment.projectId);
+                assignmentDetails = `
+                    <h4 style="margin: 0 0 10px 0; color: #2c3e50;">📋 Información de la Asignación</h4>
+                    <p><strong>🏢 Empresa:</strong> ${company?.name || 'No encontrada'}</p>
+                    <p><strong>🎯 Proyecto:</strong> ${project?.name || 'No encontrado'}</p>
+                    <p style="margin-bottom: 0;"><strong>🧩 Módulo:</strong> ${module?.name || 'No encontrado'}</p>
+                `;
+            } else {
+                // 🟦 ASIGNACIÓN DE SOPORTE
+                const support = window.PortalDB.getSupport(assignment.supportId);
+                assignmentDetails = `
+                    <h4 style="margin: 0 0 10px 0; color: #2c3e50;">📋 Información de la Asignación</h4>
+                    <p><strong>🏢 Empresa:</strong> ${company?.name || 'No encontrada'}</p>
+                    <p><strong>📞 Soporte:</strong> ${support?.name || 'No encontrado'}</p>
+                    <p style="margin-bottom: 0;"><strong>🧩 Módulo:</strong> ${module?.name || 'No encontrado'}</p>
+                `;
+            }
+            
+            assignmentInfoElement.innerHTML = assignmentDetails;
         }
         
         // Limpiar formulario
@@ -391,7 +471,6 @@ function viewAssignmentReports(assignmentId) {
         }
         
         const company = window.PortalDB.getCompany(assignment.companyId);
-        const support = window.PortalDB.getSupport(assignment.supportId); // Cambiar de getTask
         const module = window.PortalDB.getModule(assignment.moduleId);
         
         const reports = window.PortalDB.getReportsByAssignment(assignmentId);
@@ -399,14 +478,38 @@ function viewAssignmentReports(assignmentId) {
         // Mostrar información de la asignación
         const assignmentInfoElement = document.getElementById('assignmentReportsInfo');
         if (assignmentInfoElement) {
-            assignmentInfoElement.innerHTML = `
-                <div class="assignment-info-display">
-                    <h4>📋 Información de la Asignación</h4>
-                    <p><strong>🏢 Empresa:</strong> ${company?.name || 'No encontrada'}</p>
-                    <p><strong>📞 Soporte:</strong> ${support?.name || 'No encontrado'}</p>
-                    <p><strong>🧩 Módulo:</strong> ${module?.name || 'No encontrado'}</p>
-                </div>
-            `;
+            let assignmentDetails = '';
+            
+            // 🔄 DETECTAR TIPO DE ASIGNACIÓN Y MOSTRAR INFORMACIÓN CORRECTA
+            if (assignment.assignmentType === 'project') {
+                // 🟩 ASIGNACIÓN DE PROYECTO
+                const project = window.PortalDB.getProject(assignment.projectId);
+                assignmentDetails = `
+                    <div class="assignment-info-display">
+                        <h4>📋 Información de la Asignación</h4>
+                        <p><strong>🏢 Empresa:</strong> ${company?.name || 'No encontrada'}</p>
+                        <p><strong>🎯 Proyecto:</strong> ${project?.name || 'No encontrado'}</p>
+                        <p><strong>🧩 Módulo:</strong> ${module?.name || 'No encontrado'}</p>
+                        <p><strong>📊 Estado:</strong> <span class="status-badge">${project?.status || 'No definido'}</span></p>
+                        <p><strong>📝 Descripción:</strong> ${project?.description || 'Sin descripción'}</p>
+                    </div>
+                `;
+            } else {
+                // 🟦 ASIGNACIÓN DE SOPORTE
+                const support = window.PortalDB.getSupport(assignment.supportId);
+                assignmentDetails = `
+                    <div class="assignment-info-display">
+                        <h4>📋 Información de la Asignación</h4>
+                        <p><strong>🏢 Empresa:</strong> ${company?.name || 'No encontrada'}</p>
+                        <p><strong>📞 Soporte:</strong> ${support?.name || 'No encontrado'}</p>
+                        <p><strong>🧩 Módulo:</strong> ${module?.name || 'No encontrado'}</p>
+                        <p><strong>🔧 Tipo:</strong> ${support?.type || 'No especificado'}</p>
+                        <p><strong>⚡ Prioridad:</strong> ${support?.priority || 'No definida'}</p>
+                    </div>
+                `;
+            }
+            
+            assignmentInfoElement.innerHTML = assignmentDetails;
         }
         
         // Mostrar lista de reportes
@@ -430,23 +533,19 @@ function viewAssignmentReports(assignmentId) {
                     const reportDiv = document.createElement('div');
                     reportDiv.className = 'report-item';
                     reportDiv.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                            <div style="flex: 1;">
-                                <h5 style="margin: 0 0 5px 0; color: #2c3e50;">${report.title}</h5>
-                                <p style="margin: 5px 0; color: #666; font-size: 14px;">${report.description}</p>
-                                <div style="display: flex; gap: 15px; font-size: 12px; color: #888;">
-                                    <span>⏰ ${report.hours} hrs</span>
-                                    <span>📅 ${window.DateUtils.formatDate(report.reportDate)}</span>
-                                    <span>🕒 Enviado: ${window.DateUtils.formatRelativeTime(report.createdAt)}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <span class="report-status status-${report.status.toLowerCase()}">
-                                    ${report.status}
-                                </span>
-                            </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h5 style="margin: 0; color: #2c3e50;">${report.title}</h5>
+                            <span class="report-status status-${report.status.toLowerCase()}">${report.status}</span>
                         </div>
-                        ${report.status === 'Rechazado' && report.feedback ? `
+                        <p style="margin: 5px 0; color: #666; font-size: 0.9em;">
+                            <strong>⏰ Horas:</strong> ${report.hours}h | 
+                            <strong>📅 Fecha:</strong> ${window.DateUtils.formatDate(report.reportDate)} |
+                            <strong>📤 Enviado:</strong> ${window.DateUtils.formatDateTime(report.createdAt)}
+                        </p>
+                        <p style="margin: 10px 0 0 0; color: #555; font-size: 0.9em; line-height: 1.4;">
+                            ${report.description}
+                        </p>
+                        ${report.feedback ? `
                             <div style="background: #fff5f5; padding: 10px; border-radius: 6px; border-left: 3px solid #e74c3c; margin-top: 10px;">
                                 <strong style="color: #e74c3c;">Comentarios de revisión:</strong>
                                 <p style="margin: 5px 0 0 0; color: #666;">${report.feedback}</p>
@@ -535,11 +634,60 @@ function logout() {
     }
 }
 
+// === FUNCIONES AUXILIARES PARA PROYECTOS ===
+function openProjectReportModal(projectAssignmentId) {
+    console.log('Abriendo modal de reporte para proyecto:', projectAssignmentId);
+    // ✅ CORRECTO: Usar la función que realmente existe
+    openCreateReportModal(projectAssignmentId);
+}
+
+function viewProjectDetails(projectAssignmentId) {
+    const assignment = userAssignments.find(a => a.id === projectAssignmentId);
+    if (!assignment) {
+        window.NotificationUtils.error('No se encontró la asignación del proyecto');
+        return;
+    }
+    
+    const project = window.PortalDB.getProject(assignment.projectId);
+    const company = window.PortalDB.getCompany(assignment.companyId);
+    const module = window.PortalDB.getModule(assignment.moduleId);
+    
+    const details = `
+🎯 DETALLES DEL PROYECTO
+════════════════════════════
+📋 Proyecto: ${project?.name || 'No encontrado'}
+🏢 Cliente: ${company?.name || 'No encontrado'}  
+🧩 Módulo: ${module?.name || 'No encontrado'}
+📊 Estado: ${project?.status || 'No definido'}
+📝 Descripción: ${project?.description || 'Sin descripción'}
+📅 Fecha de asignación: ${window.DateUtils.formatDate(assignment.createdAt)}
+🆔 ID de asignación: ${assignment.id}
+    `;
+    
+    // Crear un modal personalizado o usar notificación
+    if (window.ModalUtils && window.ModalUtils.showInfo) {
+        window.ModalUtils.showInfo('Detalles del Proyecto', details);
+    } else {
+        alert(details);
+    }
+}
+
+// === ACTUALIZAR CONTADOR EN SIDEBAR ===
+function updateAssignmentsCount() {
+    const badge = document.getElementById('assignmentsCount');
+    if (badge) {
+        badge.textContent = userAssignments.length;
+    }
+}
+
 // === FUNCIONES EXPORTADAS GLOBALMENTE ===
 window.openCreateReportModal = openCreateReportModal;
 window.viewAssignmentReports = viewAssignmentReports;
 window.closeModal = closeModal;
 window.logout = logout;
 window.hideError = hideError;
+
+window.openProjectReportModal = openProjectReportModal;
+window.viewProjectDetails = viewProjectDetails;
 
 console.log('✅ Funciones del consultor exportadas globalmente');

@@ -78,7 +78,7 @@
                             </div>
 
                             <div class="sidebar-menu-item" data-section="asignar-proyectos">
-                                <span class="menu-icon">🎯</span>
+                                <span class="menu-icon">➕</span>
                                 <span class="menu-text">Asignar Proyectos</span>
                             </div>
                             <div class="sidebar-menu-item" data-section="lista-proyectos-asignados">
@@ -344,6 +344,28 @@
                         <div class="section-header">
                             <h2 class="section-title">📊 Reportes Pendientes</h2>
                         </div>
+                        
+                        <!-- ✨ NUEVO: Filtros por Categoría -->
+                        <div class="reports-category-filters">
+                            <div class="filter-buttons-group">
+                                <button class="category-filter-btn active" data-category="all" onclick="filterReportsByCategory('all')">
+                                    <span class="filter-icon">📊</span>
+                                    <span class="filter-text">Todos</span>
+                                    <span class="filter-count" id="filterCountAll">0</span>
+                                </button>
+                                <button class="category-filter-btn" data-category="soporte" onclick="filterReportsByCategory('soporte')">
+                                    <span class="filter-icon">📞</span>
+                                    <span class="filter-text">Soporte</span>
+                                    <span class="filter-count" id="filterCountSoporte">0</span>
+                                </button>
+                                <button class="category-filter-btn" data-category="proyecto" onclick="filterReportsByCategory('proyecto')">
+                                    <span class="filter-icon">📋</span>
+                                    <span class="filter-text">Proyecto</span>
+                                    <span class="filter-count" id="filterCountProyecto">0</span>
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div class="reports-table-container">
                             <table class="admin-table reports-table" id="reportsTable">
                                 <thead>
@@ -445,20 +467,17 @@
                             <!-- Selector de Tipo de Reporte -->
                             <div class="report-type-selector">
                                 <h3>Seleccionar Tipo de Reporte</h3>
-                                <div class="form-group" style="max-width: 500px; margin: 0 auto;">
-                                    <label for="reportTypeSelect">Tipo de Reporte:</label>
-                                    <select id="reportTypeSelect" class="form-control" onchange="selectReportType(this.value)">
-                                        <option value="">-- Seleccione un tipo de reporte --</option>
-                                        <option value="actividades">📊 Reporte de Actividades</option>
-                                        <option value="pagos">💰 Pago Consultor General (Proyecto)</option>
-                                        <option value="pago_consultor_general">🏢 Pago Consultor General (Soporte)</option>
-                                        <option value="pago_consultor_individual">👤 Pago Consultor (Soporte)</option>
-                                        <option value="cliente_soporte">📞 Cliente Soporte</option>
-                                        <option value="reporte_proyecto">📋 Reporte Proyecto</option>
-                                        <option value="reporte_proyecto_cliente">🏢 Reporte Proyecto (Cliente)</option>
-                                        <option value="reporte_proyecto_consultor">👤 Rep. Proyecto (Consultor)</option>
-                                        <option value="reporte_remanente">⏳ Reporte Remanente</option>
-                                    </select>
+                                <div class="report-type-options">
+                                    <div class="report-type-card" onclick="selectReportType('actividades')">
+                                        <div class="report-type-icon">📊</div>
+                                        <h4>Reporte de Actividades</h4>
+                                        <p>Reporte de horas trabajadas por consultor y asignación</p>
+                                    </div>
+                                    <div class="report-type-card" onclick="selectReportType('pagos')">
+                                        <div class="report-type-icon">💰</div>
+                                        <h4>Reporte de Pago Consultores</h4>
+                                        <p>Reporte de pagos con tarifas editables por consultor</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -519,7 +538,7 @@
 
                             <!-- Configuración Reporte de Pagos -->
                             <div id="pagos-config" class="report-config" style="display: none;">
-                                <h3>💰 Configuración - Pago Consultores (Proyecto)</h3>
+                                <h3>💰 Configuración - Reporte de Pago Consultores</h3>
                                 <div class="config-form">
                                     <div class="form-group">
                                         <label for="pagosTimeFilter">Período:</label>
@@ -585,274 +604,6 @@
                                             <strong>Total a Pagar: $<span id="totalAmount">0.00</span></strong>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <!-- Configuración Pago Consultor General -->
-                            <div id="pago-consultor-general-config" class="report-config" style="display: none;">
-                                <h3>🏢 Configuración - Pago Consultor General (Soporte)</h3>
-                                <div class="config-form">
-                                    <div class="form-group">
-                                        <label>Información:</label>
-                                        <p class="config-info">Este reporte consolida los pagos de todos los consultores en todas las empresas. Las horas y tarifas son editables antes de generar el Excel.</p>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="pagosGeneralTimeFilter">Período:</label>
-                                        <select id="pagosGeneralTimeFilter">
-                                            <option value="week">Esta Semana</option>
-                                            <option value="month">Este Mes</option>
-                                            <option value="custom">Rango Personalizado</option>
-                                            <option value="all">Todas las Fechas</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group" id="pagosGeneralCustomDateRange" style="display: none;">
-                                        <label for="pagosGeneralStartDate">Fecha Inicio:</label>
-                                        <input type="date" id="pagosGeneralStartDate">
-                                        
-                                        <label for="pagosGeneralEndDate">Fecha Fin:</label>
-                                        <input type="date" id="pagosGeneralEndDate">
-                                    </div>
-                                    
-                                    <div class="form-group" style="text-align: center;">
-                                        <button type="button" class="btn btn-primary" onclick="loadPagosGeneralConfiguration()">
-                                            📊 Generar Vista Previa
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Contenedor para la vista previa -->
-                                <div id="reportPreviewContainer">
-                                    <!-- Aquí se carga la tabla editable -->
-                                </div>
-                            </div>
-
-                            <!-- Configuración Pago Consultor Individual -->
-                            <div id="pago-consultor-individual-config" class="report-config" style="display: none;">
-                                <h3>👤 Configuración - Pago Consultor Individual (Soporte)</h3>
-                                <div class="config-form">
-                                    <div class="form-group">
-                                        <label>Información:</label>
-                                        <p class="config-info">Este reporte muestra los pagos de un consultor específico. Primero deberá seleccionar el consultor y luego las horas y tarifas serán editables.</p>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="pagosIndividualTimeFilter">Período:</label>
-                                        <select id="pagosIndividualTimeFilter">
-                                            <option value="week">Esta Semana</option>
-                                            <option value="month">Este Mes</option>
-                                            <option value="custom">Rango Personalizado</option>
-                                            <option value="all">Todas las Fechas</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="form-group" id="pagosIndividualCustomDateRange" style="display: none;">
-                                        <label for="pagosIndividualStartDate">Fecha Inicio:</label>
-                                        <input type="date" id="pagosIndividualStartDate">
-                                        
-                                        <label for="pagosIndividualEndDate">Fecha Fin:</label>
-                                        <input type="date" id="pagosIndividualEndDate">
-                                    </div>
-                                    
-                                    <div class="form-group" style="text-align: center;">
-                                       <button type="button" class="btn btn-primary" onclick="showConsultorSelectorIndividual()">
-                                            👤 Seleccionar Consultor
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Contenedor para la vista previa -->
-                                <div id="reportPreviewContainerIndividual">
-                                    <!-- Aquí se carga el selector y la tabla editable -->
-                                </div>
-                            </div>
-
-                            <!-- Configuración Cliente Soporte -->
-                            <div id="cliente-soporte-config" class="report-config" style="display: none;">
-                                <h3>📞 Configuración - Cliente Soporte</h3>
-                                <div class="config-form">
-                                    <div class="form-group">
-                                        <label>Información:</label>
-                                        <p class="config-info">Este reporte muestra los servicios de soporte por módulo para un cliente específico. Primero deberá seleccionar el cliente y luego las horas y tarifas serán editables.</p>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="clienteSoporteTimeFilter">Período:</label>
-                                        <select id="clienteSoporteTimeFilter">
-                                            <option value="week">Esta Semana</option>
-                                            <option value="month">Este Mes</option>
-                                            <option value="custom">Rango Personalizado</option>
-                                            <option value="all">Todas las Fechas</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="form-group" id="clienteSoporteCustomDateRange" style="display: none;">
-                                        <label for="clienteSoporteStartDate">Fecha Inicio:</label>
-                                        <input type="date" id="clienteSoporteStartDate">
-                                        
-                                        <label for="clienteSoporteEndDate">Fecha Fin:</label>
-                                        <input type="date" id="clienteSoporteEndDate">
-                                    </div>
-                                    
-                                    <div class="form-group" style="text-align: center;">
-                                        <button type="button" class="btn btn-primary" onclick="loadClienteSoporteConfiguration()">
-                                            👤 Seleccionar Cliente
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Contenedor para la vista previa -->
-                                <div id="reportPreviewContainerSoporte">
-                                    <!-- Aquí se carga el selector de cliente y la tabla editable -->
-                                </div>
-                            </div>
-
-                            <!-- Configuración Reporte Proyecto -->
-                            <div id="reporte-proyecto-config" class="report-config" style="display: none;">
-                                <h3>📋 Configuración - Reporte Proyecto</h3>
-                                <div class="config-form">
-                                    <div class="form-group">
-                                        <label>Información:</label>
-                                        <p class="config-info">Este reporte muestra todos los consultores trabajando en un proyecto específico. Primero deberá seleccionar el proyecto y luego las horas y tarifas serán editables.</p>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="reporteProyectoTimeFilter">Período:</label>
-                                        <select id="reporteProyectoTimeFilter">
-                                            <option value="week">Esta Semana</option>
-                                            <option value="month">Este Mes</option>
-                                            <option value="custom">Rango Personalizado</option>
-                                            <option value="all">Todas las Fechas</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="form-group" id="reporteProyectoCustomDateRange" style="display: none;">
-                                        <label for="reporteProyectoStartDate">Fecha Inicio:</label>
-                                        <input type="date" id="reporteProyectoStartDate">
-                                        
-                                        <label for="reporteProyectoEndDate">Fecha Fin:</label>
-                                        <input type="date" id="reporteProyectoEndDate">
-                                    </div>
-                                    
-                                    <div class="form-group" style="text-align: center;">
-                                        <button type="button" class="btn btn-primary" onclick="loadReporteProyectoConfiguration()">
-                                            📋 Seleccionar Proyecto
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Contenedor para la vista previa -->
-                                <div id="reportPreviewContainerProyecto">
-                                    <!-- Aquí se carga el selector y la tabla editable -->
-                                </div>
-                            </div>
-
-                            <!-- Configuración Reporte Proyecto (Cliente) -->
-                            <div id="reporte-proyecto-cliente-config" class="report-config" style="display: none;">
-                                <h3>🏢 Configuración - Rep. Proyecto (Cliente)</h3>
-                                <div class="config-form">
-                                    <div class="form-group">
-                                        <label>Información:</label>
-                                        <p class="config-info">Este reporte muestra los proyectos trabajados para un cliente específico, agrupados por módulos. Ideal para presentación externa al cliente.</p>
-                                    </div>
-
-                                     <div class="form-group">
-                                        <label for="reporteProyectoClienteTimeFilter">Período:</label>
-                                        <select id="reporteProyectoClienteTimeFilter">
-                                            <option value="week">Esta Semana</option>
-                                            <option value="month">Este Mes</option>
-                                            <option value="custom">Rango Personalizado</option>
-                                            <option value="all">Todas las Fechas</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="form-group" id="reporteProyectoClienteCustomDateRange" style="display: none;">
-                                        <label for="reporteProyectoClienteStartDate">Fecha Inicio:</label>
-                                        <input type="date" id="reporteProyectoClienteStartDate">
-                                        
-                                        <label for="reporteProyectoClienteEndDate">Fecha Fin:</label>
-                                        <input type="date" id="reporteProyectoClienteEndDate">
-                                    </div>
-
-                                    <div class="form-group" style="text-align: center;">
-                                    <button type="button" class="btn btn-primary" onclick="loadReporteProyectoClienteConfiguration()">
-                                        🏢 Seleccionar Cliente
-                                    </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Contenedor para la vista previa -->
-                                <div id="reportPreviewContainerProyectoCliente">
-                                    <!-- Aquí se carga el selector y la tabla editable -->
-                                </div>
-                            </div>
-
-                            <!-- Configuración Reporte Proyecto (Consultor) -->
-                            <div id="reporte-proyecto-consultor-config" class="report-config" style="display: none;">
-                                <h3>👤 Configuración - Rep. Proyecto (Consultor)</h3>
-                                <div class="config-form">
-                                    <div class="form-group">
-                                        <label>Información:</label>
-                                        <p class="config-info">Este reporte muestra el trabajo individual de un consultor específico en un proyecto particular. Ideal para evaluaciones de desempeño y reportes personales.</p>
-                                    </div>
-                                    
-                                    <!-- FILTROS DE FECHA (que ya agregaste) -->
-                                    <div class="form-group">
-                                        <label for="reporteProyectoConsultorTimeFilter">Período:</label>
-                                        <select id="reporteProyectoConsultorTimeFilter">
-                                            <option value="week">Esta Semana</option>
-                                            <option value="month">Este Mes</option>
-                                            <option value="custom">Rango Personalizado</option>
-                                            <option value="all">Todas las Fechas</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group" id="reporteProyectoConsultorCustomDateRange" style="display: none;">
-                                        <label for="reporteProyectoConsultorStartDate">Fecha Inicio:</label>
-                                        <input type="date" id="reporteProyectoConsultorStartDate">
-                                        
-                                        <label for="reporteProyectoConsultorEndDate">Fecha Fin:</label>
-                                        <input type="date" id="reporteProyectoConsultorEndDate">
-                                    </div>
-                                    
-                                    <div class="form-group" style="text-align: center;">
-                                        <button type="button" class="btn btn-primary" onclick="showConsultorSelectorProyecto()">
-                                            👤 Seleccionar Consultor
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Contenedor para la vista previa -->
-                                <div id="reportPreviewContainerProyectoConsultor">
-                                    <!-- Aquí se carga el selector y la tabla editable -->
-                                </div>
-                            </div>
-
-                            <!-- Configuración Reporte Remanente -->
-                            <div id="reporte-remanente-config" class="report-config" style="display: none;">
-                                <h3>⏳ Configuración - Reporte Remanente</h3>
-                                <div class="config-form">
-                                    <div class="form-group">
-                                        <label>Información:</label>
-                                        <p class="config-info">Este reporte muestra una matriz semanal de horas remanentes por módulo en el período mensual seleccionado.</p>
-                                    </div>
-                                    
-                                    <div class="form-group" style="max-width: 300px; margin: 0 auto;">
-                                        <label for="remanenteMonthSelector">Seleccionar Mes:</label>
-                                        <input type="month" id="remanenteMonthSelector" class="form-control" onchange="onRemanenteMonthSelected()">
-                                    </div>
-                                    
-                                    <div class="form-group" style="text-align: center; margin-top: 20px;">
-                                        <button type="button" class="btn btn-primary" onclick="loadRemanenteSimpleConfiguration()" id="generateRemanenteSimpleBtn" disabled>
-                                            ⏳ Generar Reporte Remanente
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Contenedor para la vista previa -->
-                                <div id="reportPreviewContainerRemanenteSimple">
-                                    <!-- Aquí se carga la matriz editable -->
                                 </div>
                             </div>
 
@@ -1131,16 +882,9 @@
     </div>
 
     <!-- Scripts -->
-<script src="../js/database.js"></script>
-<script src="../js/auth.js"></script>
-<script src="../js/utils.js"></script>
-<script src="js/pago-consultor-general.js"></script>
-<script src="js/pago-consultor-individual.js"></script>
-<script src="js/cliente-soporte.js"></script>
-<script src="js/reporte-proyecto.js"></script>
-<script src="js/reporte-proyecto-cliente.js"></script>
-<script src="js/reporte-proyecto-consultor.js"></script>
-<script src="js/reporte-remanente.js"></script>
-<script src="admin.js"></script>
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="admin.js"></script>
 </body>
 </html>

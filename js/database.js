@@ -750,13 +750,37 @@ createAssignment(assignmentData) {
         return { success: false, message: 'El ID de asignación es requerido' };
     }
     
-    const assignment = this.getAssignment(reportData.assignmentId);
+    // 🔄 BUSCAR LA ASIGNACIÓN EN AMBAS TABLAS (SOPORTES Y PROYECTOS)
+    let assignment = null;
+    let assignmentType = null;
+    
+    // Primero buscar en asignaciones de soporte
+    assignment = this.getAssignment(reportData.assignmentId);
+    if (assignment) {
+        assignmentType = 'support';
+    } else {
+        // Si no se encuentra, buscar en asignaciones de proyecto
+        assignment = this.getProjectAssignment ? this.getProjectAssignment(reportData.assignmentId) : null;
+        if (assignment) {
+            assignmentType = 'project';
+        }
+    }
+    
+    // Si no se encuentra en ninguna tabla
     if (!assignment) {
         return { success: false, message: 'La asignación especificada no existe' };
     }
     
-    // VALIDAR que el usuario coincide con el de la asignación
-    if (reportData.userId !== assignment.userId) {
+    // 🔄 VALIDAR QUE EL USUARIO COINCIDE (DIFERENTES CAMPOS SEGÚN EL TIPO)
+    let assignmentUserId = null;
+
+    if (assignmentType === 'support') {
+        assignmentUserId = assignment.userId;
+    } else if (assignmentType === 'project') {
+        assignmentUserId = assignment.consultorId; // En proyectos se llama 'consultorId'
+    }
+    
+    if (reportData.userId !== assignmentUserId) {
         return { success: false, message: 'El usuario no coincide con la asignación' };
     }
     
@@ -764,6 +788,7 @@ createAssignment(assignmentData) {
         id: reportId,
         userId: reportData.userId,
         assignmentId: reportData.assignmentId, // CAMPO OBLIGATORIO
+        assignmentType: assignmentType, // 🆕 AGREGAR TIPO DE ASIGNACIÓN
         title: reportData.title,
         description: reportData.description || '',
         hours: reportData.hours || 0,
@@ -1294,6 +1319,13 @@ deleteGeneratedReport(reportId) {
     getProjectAssignments(projectId) {
         const assignments = Object.values(this.getAssignments());
         return assignments.filter(assignment => assignment.projectId === projectId);
+    }
+
+    getUserProjectAssignments(consultorId) {
+        const projectAssignments = Object.values(this.getProjectAssignments());
+        return projectAssignments.filter(assignment => 
+            assignment.consultorId === consultorId && assignment.isActive
+        );
     }
 
     // === FUNCIONES DE RESET ===
