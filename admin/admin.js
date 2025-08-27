@@ -3399,15 +3399,15 @@ function generateReportConfiguration(reportType) {
         `;
     }
     
-    // Filtros especiales para Reporte Remanente
-    if (reportType === 'remanente') {
-        filtersHTML += `
-            <div class="form-group">
-                <label for="supportTypeFilter">📞 Tipo de Soporte: <span style="color: red;">*</span></label>
-                <select id="supportTypeFilter" required onchange="validateRequiredFilters()">
-                    <option value="">Seleccionar tipo de soporte...</option>
-                </select>
-            </div>
+        // Filtros especiales para Reporte Remanente
+        if (reportType === 'remanente') {
+            filtersHTML += `
+                <div class="form-group">
+                    <label for="supportTypeFilter">📞 Soporte Específico: <span style="color: red;">*</span></label>
+                    <select id="supportTypeFilter" required onchange="validateRequiredFilters()">
+                        <option value="">Seleccionar soporte específico...</option>
+                    </select>
+                </div>
             <div class="form-group">
                 <label for="monthFilter">📅 Mes de Análisis: <span style="color: red;">*</span></label>
                 <select id="monthFilter" required onchange="validateRequiredFilters()">
@@ -3531,18 +3531,17 @@ function populateFilterDropdowns(reportType) {
         });
     }
     
-    // Poblar tipo de soporte (para remanente)
-    const supportTypeFilter = document.getElementById('supportTypeFilter');
-    if (supportTypeFilter && currentData.supports) {
-        supportTypeFilter.innerHTML = '<option value="">Seleccionar tipo de soporte...</option>';
-        const supportTypes = [...new Set(Object.values(currentData.supports).map(s => s.type).filter(Boolean))];
-        supportTypes.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type;
-            option.textContent = type;
-            supportTypeFilter.appendChild(option);
-        });
-    }
+// Poblar soporte específico (para remanente)
+const supportTypeFilter = document.getElementById('supportTypeFilter');
+if (supportTypeFilter && currentData.supports) {
+    supportTypeFilter.innerHTML = '<option value="">Seleccionar soporte específico...</option>';
+    Object.values(currentData.supports).forEach(support => {
+        const option = document.createElement('option');
+        option.value = support.id;
+        option.textContent = `${support.name}${support.type ? ` (${support.type})` : ''}`;
+        supportTypeFilter.appendChild(option);
+    });
+}
     
     // Poblar meses (para remanente)
     const monthFilter = document.getElementById('monthFilter');
@@ -3598,7 +3597,7 @@ function validateRequiredFilters() {
         
         if (!supportTypeFilter?.value) {
             isValid = false;
-            missingFields.push('Tipo de Soporte');
+            missingFields.push('Soporte Específico');
         }
         if (!monthFilter?.value) {
             isValid = false;
@@ -3747,11 +3746,11 @@ function getReportDataByType(reportType) {
             const clientSupportId = document.getElementById('supportFilter')?.value || 'all';
             return getClientSoporteData(approvedReports, clientId, clientSupportId);
             
-        case 'remanente':
+       case 'remanente':
             const remanenteClientId = document.getElementById('clientFilter')?.value;
-            const supportType = document.getElementById('supportTypeFilter')?.value;
+            const specificSupportId = document.getElementById('supportTypeFilter')?.value;  // ← Nombre diferente
             const month = document.getElementById('monthFilter')?.value;
-            return getRemanenteData(approvedReports, remanenteClientId, supportType, month);
+            return getRemanenteData(approvedReports, remanenteClientId, specificSupportId, month);
             
         case 'proyecto-general':
             return getProyectoData(approvedReports, 'all', 'all');
@@ -3975,8 +3974,8 @@ function getDayWeekNumber(day, weekDistribution) {
 /**
  * Obtener datos para reporte remanente (estructura especial por semanas) - VERSIÓN CORREGIDA
  */
-function getRemanenteData(reports, clientId, supportType, monthKey) {
-    console.log('📊 Generando reporte remanente con lógica de semanas corregida');
+function getRemanenteData(reports, clientId, specificSupportId, monthKey) {
+    console.log('📊 Generando reporte remanente con soporte específico');
     
     const [year, month] = monthKey.split('-').map(Number);
     const monthStart = new Date(year, month - 1, 1);
@@ -4002,15 +4001,14 @@ function getRemanenteData(reports, clientId, supportType, monthKey) {
         
         if (!assignment || assignment.companyId !== clientId) return false;
         
-        // Verificar tipo de soporte
-        const support = currentData.supports[assignment.supportId];
-        if (!support || support.type !== supportType) return false;
+        // Verificar soporte específico
+        if (assignment.supportId !== specificSupportId) return false;
         
         return reportDate >= monthStart && reportDate <= monthEnd;
     });
     
-    console.log(`📋 ${monthReports.length} reportes encontrados para el período`);
-    
+        console.log(`📋 ${monthReports.length} reportes encontrados para el soporte específico`);
+
     // Agrupar por módulo y distribuir por semanas dinámicamente
     const moduleData = {};
     
@@ -4586,13 +4584,21 @@ function updateGeneralTotals() {
     
     let totalHours, totalAmount;
     
-    if (currentReportType === 'remanente') {
-        // Para remanente, sumar todas las semanas
-        totalHours = Object.values(editablePreviewData).reduce((sum, row) => sum + row.totalHoras, 0);
-        totalAmount = Object.values(editablePreviewData).reduce((sum, row) => {
-            return sum + row.semana1.total + row.semana2.total + row.semana3.total + row.semana4.total;
-        }, 0);
-    } else {
+        if (currentReportType === 'remanente') {
+            // Para remanente, sumar todas las semanas dinámicamente
+            totalHours = Object.values(editablePreviewData).reduce((sum, row) => sum + row.totalHoras, 0);
+            totalAmount = Object.values(editablePreviewData).reduce((sum, row) => {
+                const weekStructure = row.monthStructure;
+                let rowTotal = 0;
+                for (let i = 1; i <= weekStructure.totalWeeks; i++) {
+                    const semanaData = row[`semana${i}`];
+                    if (semanaData) {
+                        rowTotal += parseFloat(semanaData.total || 0);
+                    }
+                }
+                return sum + rowTotal;
+            }, 0);
+        } else {
         // Para reportes estándar
         totalHours = Object.values(editablePreviewData).reduce((sum, row) => sum + row.editedTime, 0);
         totalAmount = Object.values(editablePreviewData).reduce((sum, row) => sum + row.editedTotal, 0);
@@ -4871,10 +4877,11 @@ function generateClienteSoporteExcel() {
  * Generar Excel para Reporte Remanente (estructura dinámica por semanas) - VERSIÓN CORREGIDA
  */
 function generateRemanenteExcel() {
-    console.log('📊 Generando Excel - Reporte Remanente con semanas dinámicas');
+    console.log('📊 Generando Excel - Reporte Remanente con soporte específico');
     
     const clientName = document.getElementById('clientFilter')?.selectedOptions[0]?.text || 'Cliente';
-    const supportType = document.getElementById('supportTypeFilter')?.value || 'N/A';
+    const supportId = document.getElementById('supportTypeFilter')?.value;
+    const supportName = document.getElementById('supportTypeFilter')?.selectedOptions[0]?.text || 'N/A';
     const monthName = document.getElementById('monthFilter')?.selectedOptions[0]?.text || 'Mes';
     
     // Obtener estructura de semanas
@@ -4895,7 +4902,7 @@ function generateRemanenteExcel() {
     // Fila 2: Información
     const infoRow = Array(titleRowLength).fill('');
     infoRow[1] = `Cliente: ${clientName}`;
-    infoRow[4] = `Tipo: ${supportType}`;
+    infoRow[4] = `Soporte: ${supportName}`;
     infoRow[7] = `Mes: ${monthName}`;
     infoRow[10] = `Semanas: ${weekStructure.totalWeeks}`;
     wsData.push(infoRow);
