@@ -5449,7 +5449,7 @@ function generateClienteSoporteExcel() {
 }
 
 /**
- * Generar Excel para Reporte Remanente (estructura dinámica por semanas) - VERSIÓN CORREGIDA
+ * Generar Excel para Reporte Remanente (estructura dinámica por semanas) - VERSIÓN CORREGIDA CON PROYECTOS
  */
 function generateRemanenteExcel() {
     console.log('📊 Generando Excel - Reporte Remanente con soporte específico');
@@ -5459,121 +5459,193 @@ function generateRemanenteExcel() {
     const supportName = document.getElementById('supportTypeFilter')?.selectedOptions[0]?.text || 'N/A';
     const monthName = document.getElementById('monthFilter')?.selectedOptions[0]?.text || 'Mes';
     
-    // Obtener estructura de semanas
-    const firstModule = Object.values(editablePreviewData)[0];
-    const weekStructure = firstModule.monthStructure;
-    
-    console.log(`📅 Excel para ${weekStructure.totalWeeks} semanas: ${weekStructure.description}`);
+    // Verificar que hay datos editables
+    if (!editablePreviewData || Object.keys(editablePreviewData).length === 0) {
+        window.NotificationUtils.error('No hay datos para exportar');
+        return;
+    }
     
     const wb = XLSX.utils.book_new();
     const wsData = [];
     
-    // Fila 1: Título
-    const titleRowLength = 1 + (weekStructure.totalWeeks * 4); // 1 + 4 columnas por semana
-    const titleRow = Array(titleRowLength).fill('');
-    titleRow[Math.floor(titleRowLength / 2)] = 'REPORTE REMANENTE';
-    wsData.push(titleRow);
+    // Separar datos de soportes y proyectos
+    const soporteData = Object.values(editablePreviewData).filter(row => row.type === 'soporte');
+    const projectData = Object.values(editablePreviewData).filter(row => row.type === 'project');
     
-    // Fila 2: Información
-    const infoRow = Array(titleRowLength).fill('');
-    infoRow[1] = `Cliente: ${clientName}`;
-    infoRow[4] = `Soporte: ${supportName}`;
-    infoRow[7] = `Mes: ${monthName}`;
-    infoRow[10] = `Semanas: ${weekStructure.totalWeeks}`;
-    wsData.push(infoRow);
+    console.log(`📊 Exportando: ${soporteData.length} soportes, ${projectData.length} proyectos`);
     
-    // Fila 3: Espacio
-    wsData.push(Array(titleRowLength).fill(''));
-    
-    // Filas 4-5: Headers dinámicos para semanas
-    const headerRow1 = ['Total de Horas'];
-    const headerRow2 = [''];
-    
-    for (let i = 1; i <= weekStructure.totalWeeks; i++) {
-        const daysInWeek = weekStructure.distribution[i - 1];
-        headerRow1.push(`SEMANA ${i} (${daysInWeek}d)`, '', '', '');
-        headerRow2.push('MODULO', 'TIEMPO', 'TARIFA', 'TOTAL');
-    }
-    
-    wsData.push(headerRow1);
-    wsData.push(headerRow2);
-    
-    // Datos por módulo y semana
-    let grandTotalHours = 0;
-    let grandTotalAmount = 0;
-    
-    Object.values(editablePreviewData).forEach(row => {
-        const dataRow = [row.totalHoras.toFixed(1)];
+    // === SECCIÓN DE SOPORTES (si hay) ===
+    if (soporteData.length > 0) {
+        // Obtener estructura de semanas del primer soporte
+        const firstSupport = soporteData[0];
+        const weekStructure = firstSupport.monthStructure;
         
-        for (let semana = 1; semana <= weekStructure.totalWeeks; semana++) {
-            const semanaData = row[`semana${semana}`];
-            
-            if (semanaData) {
-                dataRow.push(
-                    row.modulo,
-                    parseFloat(semanaData.tiempo || 0),
-                    parseFloat(semanaData.tarifa || 0),
-                    parseFloat(semanaData.total || 0)
-                );
-                grandTotalAmount += parseFloat(semanaData.total || 0);
-            } else {
-                // Para casos excepcionales donde no existe la semana
-                dataRow.push('-', 0, 0, 0);
-            }
+        if (!weekStructure) {
+            window.NotificationUtils.error('Error: estructura de semanas no encontrada');
+            return;
         }
         
-        wsData.push(dataRow);
-        grandTotalHours += row.totalHoras;
-    });
-    
-    // Fila de totales dinámicos
-    const totalsRow = [grandTotalHours.toFixed(1)];
-    
-    for (let semana = 1; semana <= weekStructure.totalWeeks; semana++) {
-        const semanaTotalHours = Object.values(editablePreviewData)
-            .reduce((sum, row) => {
+        console.log(`📅 Excel para ${weekStructure.totalWeeks} semanas: ${weekStructure.description}`);
+        
+        // Título de soportes
+        const titleRowLength = 1 + (weekStructure.totalWeeks * 4);
+        const titleRow = Array(titleRowLength).fill('');
+        titleRow[Math.floor(titleRowLength / 2)] = 'REPORTE REMANENTE - SOPORTES';
+        wsData.push(titleRow);
+        
+        // Información
+        const infoRow = Array(titleRowLength).fill('');
+        infoRow[1] = `Cliente: ${clientName}`;
+        infoRow[4] = `Soporte: ${supportName}`;
+        infoRow[7] = `Mes: ${monthName}`;
+        infoRow[10] = `Semanas: ${weekStructure.totalWeeks}`;
+        wsData.push(infoRow);
+        
+        // Espacio
+        wsData.push(Array(titleRowLength).fill(''));
+        
+        // Headers dinámicos
+        const headerRow1 = ['Total de Horas'];
+        const headerRow2 = [''];
+        
+        for (let i = 1; i <= weekStructure.totalWeeks; i++) {
+            const daysInWeek = weekStructure.distribution[i - 1] || 7;
+            headerRow1.push(`SEMANA ${i} (${daysInWeek}d)`, '', '', '');
+            headerRow2.push('MODULO', 'TIEMPO', 'TARIFA', 'TOTAL');
+        }
+        
+        wsData.push(headerRow1);
+        wsData.push(headerRow2);
+        
+        // Datos de soportes por módulo y semana
+        let grandTotalHours = 0;
+        let grandTotalAmount = 0;
+        
+        soporteData.forEach(row => {
+            const totalHoras = row.totalHoras || 0;
+            const dataRow = [totalHoras.toFixed ? totalHoras.toFixed(1) : totalHoras];
+            
+            for (let semana = 1; semana <= weekStructure.totalWeeks; semana++) {
+                const semanaData = row[`semana${semana}`];
+                
+                if (semanaData && typeof semanaData === 'object') {
+                    dataRow.push(
+                        row.modulo || '-',
+                        parseFloat(semanaData.tiempo || 0),
+                        parseFloat(semanaData.tarifa || 0),
+                        parseFloat(semanaData.total || 0)
+                    );
+                    grandTotalAmount += parseFloat(semanaData.total || 0);
+                } else {
+                    dataRow.push('-', 0, 0, 0);
+                }
+            }
+            
+            wsData.push(dataRow);
+            grandTotalHours += totalHoras;
+        });
+        
+        // Totales de soportes
+        const totalsRow = [grandTotalHours.toFixed ? grandTotalHours.toFixed(1) : grandTotalHours];
+        
+        for (let semana = 1; semana <= weekStructure.totalWeeks; semana++) {
+            const semanaTotalHours = soporteData.reduce((sum, row) => {
                 const semanaData = row[`semana${semana}`];
                 return sum + (semanaData ? parseFloat(semanaData.tiempo || 0) : 0);
             }, 0);
             
-        const semanaTotalAmount = Object.values(editablePreviewData)
-            .reduce((sum, row) => {
+            const semanaTotalAmount = soporteData.reduce((sum, row) => {
                 const semanaData = row[`semana${semana}`];
                 return sum + (semanaData ? parseFloat(semanaData.total || 0) : 0);
             }, 0);
+            
+            totalsRow.push('TOTALES', semanaTotalHours, '', semanaTotalAmount);
+        }
         
-        totalsRow.push('TOTALES', semanaTotalHours, '', semanaTotalAmount);
+        wsData.push(totalsRow);
     }
     
-    wsData.push(totalsRow);
+    // === SECCIÓN DE PROYECTOS (si hay) ===
+    if (projectData.length > 0) {
+        // Espacio entre secciones
+        wsData.push([]);
+        wsData.push([]);
+        
+        // Título de proyectos
+        wsData.push(['PROYECTOS DEL CLIENTE']);
+        wsData.push([]);
+        
+        // Headers de proyectos
+        wsData.push(['Proyecto', 'Módulo', 'Total Horas', 'Tarifa', 'Total']);
+        
+        // Datos de proyectos
+        let projectTotalHours = 0;
+        let projectTotalAmount = 0;
+        
+        // Agrupar por proyecto
+        const projectGroups = {};
+        projectData.forEach(row => {
+            const projectName = row.projectName || 'Proyecto Sin Nombre';
+            if (!projectGroups[projectName]) {
+                projectGroups[projectName] = [];
+            }
+            projectGroups[projectName].push(row);
+        });
+        
+        // Generar filas por proyecto
+        Object.entries(projectGroups).forEach(([projectName, modules]) => {
+            // Header del proyecto
+            wsData.push([projectName, '', '', '', '']);
+            
+            // Módulos del proyecto
+            modules.forEach(row => {
+                const hours = parseFloat(row.editedTime || row.totalHours || 0);
+                const tariff = parseFloat(row.editedTariff || row.tarifa || 0);
+                const total = parseFloat(row.editedTotal || row.total || 0);
+                
+                wsData.push([
+                    '',
+                    row.moduleName || 'Módulo Sin Nombre',
+                    hours,
+                    tariff,
+                    total
+                ]);
+                
+                projectTotalHours += hours;
+                projectTotalAmount += total;
+            });
+        });
+        
+        // Totales de proyectos
+        wsData.push([]);
+        wsData.push(['TOTAL PROYECTOS', '', projectTotalHours, '', projectTotalAmount]);
+    }
     
+    // Crear worksheet
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     applyExcelStyling(ws, wsData, 'remanente');
-    
-    // ✅ NUEVO: Merges dinámicos según número de semanas
-    const merges = [
-        { s: { r: 0, c: 4 }, e: { r: 0, c: Math.min(8, titleRowLength - 1) } }, // Título
-        { s: { r: 1, c: 1 }, e: { r: 1, c: 2 } }, // Cliente
-        { s: { r: 1, c: 4 }, e: { r: 1, c: 5 } }, // Tipo
-        { s: { r: 1, c: 7 }, e: { r: 1, c: 8 } }  // Mes
-    ];
-    
-    // Merges para headers de semanas
-    for (let semana = 1; semana <= weekStructure.totalWeeks; semana++) {
-        const startCol = 1 + ((semana - 1) * 4);
-        const endCol = startCol + 3;
-        merges.push({ s: { r: 3, c: startCol }, e: { r: 3, c: endCol } });
-    }
-    
-    ws['!merges'] = merges;
     
     XLSX.utils.book_append_sheet(wb, ws, "REPORTE REMANENTE");
     
     const fileName = generateFileName('ReporteRemanente');
     XLSX.writeFile(wb, fileName);
-    saveToReportHistory(fileName, 'remanente', grandTotalHours, grandTotalAmount);
     
-    window.NotificationUtils.success(`Excel Remanente generado: ${fileName} (${weekStructure.totalWeeks} semanas)`);
+    const totalHours = (soporteData.reduce((sum, row) => sum + (row.totalHoras || 0), 0)) + 
+                      (projectData.reduce((sum, row) => sum + parseFloat(row.editedTime || row.totalHours || 0), 0));
+    
+    const totalAmount = (soporteData.reduce((sum, row) => {
+        if (!row.monthStructure) return sum;
+        let rowTotal = 0;
+        for (let i = 1; i <= row.monthStructure.totalWeeks; i++) {
+            const semanaData = row[`semana${i}`];
+            if (semanaData) rowTotal += parseFloat(semanaData.total || 0);
+        }
+        return sum + rowTotal;
+    }, 0)) + (projectData.reduce((sum, row) => sum + parseFloat(row.editedTotal || row.total || 0), 0));
+    
+    saveToReportHistory(fileName, 'remanente', totalHours, totalAmount);
+    
+    window.NotificationUtils.success(`Excel Remanente generado: ${fileName} (${soporteData.length + projectData.length} elementos)`);
 }
 
 /**
