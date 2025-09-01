@@ -38,7 +38,7 @@ const ARVIC_REPORTS = {
         icon: '📊',
         description: 'Información acumulada de reportes aprobados dividida por semanas del mes',
         audience: '👑 Administradores - Seguimiento',
-        filters: ['client', 'supportType', 'month'],
+        filters: ['client', 'supportType', 'month', 'project'],
         structure: ['Total de Horas', 'SEMANA 1', 'SEMANA 2', 'SEMANA 3', 'SEMANA 4'],
         editableFields: ['TIEMPO', 'TARIFA'],
         excelTitle: 'REPORTE REMANENTE',
@@ -3272,17 +3272,21 @@ function generateReportConfiguration(reportType) {
         `;
     }
     
-    // Filtro por cliente específico
-    if (report.filters.includes('client')) {
-        filtersHTML += `
-            <div class="form-group">
-                <label for="clientFilter">🏢 Seleccionar Cliente: <span style="color: red;">*</span></label>
-                <select id="clientFilter" required onchange="validateRequiredFilters()">
-                    <option value="">Seleccionar cliente...</option>
-                </select>
-            </div>
-        `;
-    }
+// Filtro por cliente específico
+if (report.filters.includes('client')) {
+    const clientOnChange = reportType === 'remanente' ? 
+        'handleClientFilterChangeRemanente(); validateRequiredFilters();' : 
+        'validateRequiredFilters()';
+    
+    filtersHTML += `
+        <div class="form-group">
+            <label for="clientFilter">🏢 Seleccionar Cliente: <span style="color: red;">*</span></label>
+            <select id="clientFilter" required onchange="${clientOnChange}">
+                <option value="">Seleccionar cliente...</option>
+            </select>
+        </div>
+    `;
+}
     
     // Filtro por soporte
     if (report.filters.includes('support')) {
@@ -3297,7 +3301,22 @@ function generateReportConfiguration(reportType) {
     }
     
     // Filtro por proyecto
-    if (report.filters.includes('project')) {
+if (report.filters.includes('project')) {
+    if (reportType === 'remanente') {
+        filtersHTML += `
+            <div class="form-group">
+                <label for="projectFilter">📋 Proyectos del Cliente:</label>
+                <select id="projectFilter" onchange="validateRequiredFilters()">
+                    <option value="">Seleccionar cliente primero...</option>
+                    <option value="ninguno">Sin proyectos</option>
+                    <option value="todos">Todos los proyectos</option>
+                </select>
+                <small style="color: #666; font-size: 0.875rem;">
+                    💡 Primero selecciona un cliente para ver sus proyectos
+                </small>
+            </div>
+        `;
+    } else {
         filtersHTML += `
             <div class="form-group">
                 <label for="projectFilter">📋 Filtrar por Proyecto:</label>
@@ -3307,6 +3326,7 @@ function generateReportConfiguration(reportType) {
             </div>
         `;
     }
+}
     
         // Filtros especiales para Reporte Remanente
         if (reportType === 'remanente') {
@@ -3469,6 +3489,129 @@ if (supportTypeFilter && currentData.supports) {
             monthFilter.appendChild(option);
         }
     }
+}
+
+/**
+ * Manejar cambio en filtro de cliente para reporte remanente
+ */
+function handleClientFilterChangeRemanente() {
+    const clientFilter = document.getElementById('clientFilter');
+    const supportTypeFilter = document.getElementById('supportTypeFilter');
+    const projectFilter = document.getElementById('projectFilter');
+    
+    if (!clientFilter || !clientFilter.value) {
+        // Si no hay cliente seleccionado, limpiar otros filtros
+        if (supportTypeFilter) {
+            supportTypeFilter.innerHTML = '<option value="">Seleccionar cliente primero...</option>';
+            supportTypeFilter.disabled = true;
+        }
+        if (projectFilter) {
+            projectFilter.innerHTML = '<option value="">Seleccionar cliente primero...</option>';
+            projectFilter.disabled = true;
+        }
+        return;
+    }
+    
+    const clientId = clientFilter.value;
+    console.log('🔄 Cliente seleccionado para remanente:', clientId);
+    
+    // Habilitar filtros
+    if (supportTypeFilter) supportTypeFilter.disabled = false;
+    if (projectFilter) projectFilter.disabled = false;
+    
+    // Actualizar filtro de soportes específicos del cliente
+    updateSupportTypeFilterByClient(clientId);
+    
+    // Actualizar filtro de proyectos del cliente
+    updateProjectFilterByClient(clientId);
+    
+    // Revalidar
+    validateRequiredFilters();
+}
+
+/**
+ * Actualizar filtro de soporte específico por cliente
+ */
+function updateSupportTypeFilterByClient(clientId) {
+    const supportTypeFilter = document.getElementById('supportTypeFilter');
+    if (!supportTypeFilter) return;
+    
+    // Limpiar opciones actuales
+    supportTypeFilter.innerHTML = '<option value="">Seleccionar soporte específico...</option>';
+    
+    // Buscar asignaciones de soporte del cliente
+    const clientAssignments = Object.values(currentData.assignments || {}).filter(assignment => 
+        assignment.companyId === clientId && assignment.isActive
+    );
+    
+    // Obtener soportes únicos
+    const uniqueSupports = new Set();
+    clientAssignments.forEach(assignment => {
+        if (assignment.supportId) {
+            const support = currentData.supports?.[assignment.supportId];
+            if (support) {
+                uniqueSupports.add(JSON.stringify({
+                    id: support.id,
+                    name: support.name
+                }));
+            }
+        }
+    });
+    
+    // Agregar opciones al filtro
+    Array.from(uniqueSupports).forEach(supportStr => {
+        const support = JSON.parse(supportStr);
+        const option = document.createElement('option');
+        option.value = support.id;
+        option.textContent = support.name;
+        supportTypeFilter.appendChild(option);
+    });
+    
+    console.log(`🔄 ${uniqueSupports.size} soportes encontrados para cliente ${clientId}`);
+}
+
+/**
+ * Actualizar filtro de proyectos por cliente
+ */
+function updateProjectFilterByClient(clientId) {
+    const projectFilter = document.getElementById('projectFilter');
+    if (!projectFilter) return;
+    
+    // Opciones base
+    projectFilter.innerHTML = `
+        <option value="ninguno">Sin proyectos</option>
+        <option value="todos">Todos los proyectos</option>
+    `;
+    
+    // Buscar asignaciones de proyecto del cliente
+    const projectAssignments = Object.values(currentData.projectAssignments || {}).filter(assignment => 
+        assignment.companyId === clientId && assignment.isActive
+    );
+    
+    // Obtener proyectos únicos
+    const uniqueProjects = new Set();
+    projectAssignments.forEach(assignment => {
+        if (assignment.projectId) {
+            const project = currentData.projects?.[assignment.projectId];
+            if (project) {
+                uniqueProjects.add(JSON.stringify({
+                    id: project.id,
+                    name: project.name
+                }));
+            }
+        }
+    });
+    
+    // Agregar proyectos específicos
+    Array.from(uniqueProjects).forEach(projectStr => {
+        const project = JSON.parse(projectStr);
+        const option = document.createElement('option');
+        option.value = project.id;
+        option.textContent = project.name;
+        projectFilter.appendChild(option);
+    });
+    
+    console.log(`🔄 ${uniqueProjects.size} proyectos encontrados para cliente ${clientId}`);
 }
 
 /**
@@ -3657,9 +3800,22 @@ function getReportDataByType(reportType) {
             
        case 'remanente':
             const remanenteClientId = document.getElementById('clientFilter')?.value;
-            const specificSupportId = document.getElementById('supportTypeFilter')?.value;  // ← Nombre diferente
-            const month = document.getElementById('monthFilter')?.value;
-            return getRemanenteData(approvedReports, remanenteClientId, specificSupportId, month);
+            const specificSupportId = document.getElementById('supportTypeFilter')?.value;
+            const monthKey = document.getElementById('monthFilter')?.value;
+            const projectSelection = document.getElementById('projectFilter')?.value;
+            
+            if (!remanenteClientId || !specificSupportId || !monthKey) {
+                console.error('❌ Faltan filtros requeridos para remanente');
+                return [];
+            }
+            
+            console.log('📊 Generando remanente con proyectos:', {
+                cliente: remanenteClientId,
+                soporte: specificSupportId,
+                mes: monthKey,
+                proyectos: projectSelection
+            });
+            return getRemanenteDataWithProjects(approvedReports, remanenteClientId, specificSupportId, monthKey, projectSelection);
             
         case 'proyecto-general':
             return getProyectoData(approvedReports, 'all', 'all');
@@ -3970,6 +4126,174 @@ function getRemanenteData(reports, clientId, specificSupportId, monthKey) {
     console.log(`✅ Datos procesados para ${Object.keys(moduleData).length} módulos`);
     return Object.values(moduleData);
 }
+
+/**
+ * Obtener datos para reporte remanente CON PROYECTOS
+ */
+function getRemanenteDataWithProjects(reports, clientId, specificSupportId, monthKey, projectSelection) {
+    console.log('📊 Generando reporte remanente con proyectos incluidos');
+    
+    // 1. Obtener datos de soportes (función existente)
+    const soporteData = getRemanenteData(reports, clientId, specificSupportId, monthKey);
+    
+    // 2. Obtener datos de proyectos si se seleccionaron
+    let projectData = [];
+    if (projectSelection && projectSelection !== 'ninguno') {
+        projectData = getRemanenteProjectData(reports, clientId, monthKey, projectSelection);
+    }
+    
+    // 3. Combinar ambos datasets
+    const combinedData = {
+        soportes: soporteData,
+        proyectos: projectData,
+        hasProjects: projectData.length > 0,
+        projectSelection: projectSelection
+    };
+    
+    console.log('✅ Datos remanente combinados:', {
+        soportes: soporteData.length,
+        proyectos: projectData.length,
+        selección: projectSelection
+    });
+    
+    return combinedData;
+}
+
+/**
+ * Obtener datos de proyectos para reporte remanente
+ */
+function getRemanenteProjectData(reports, clientId, monthKey, projectSelection) {
+    console.log('📋 DIAGNÓSTICO - Obteniendo datos de proyectos para remanente');
+    console.log('📊 Parámetros recibidos:', {
+        reportsTotal: reports.length,
+        clientId: clientId,
+        monthKey: monthKey,
+        projectSelection: projectSelection
+    });
+    
+    // Verificar si existen project assignments
+    console.log('📋 Total projectAssignments en sistema:', Object.keys(currentData.projectAssignments || {}).length);
+    console.log('📋 Muestra projectAssignments:', Object.values(currentData.projectAssignments || {}).slice(0, 3));
+    
+    const [year, month] = monthKey.split('-').map(Number);
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    
+    console.log('📅 Rango de fechas:', { monthStart, monthEnd });
+
+    // DIAGNÓSTICO: Examinar todos los reportes
+    console.log('🔍 DIAGNÓSTICO REPORTES:');
+    console.log('📊 Total reportes para análisis:', reports.length);
+    
+    // Mostrar algunos reportes de ejemplo
+    reports.slice(0, 3).forEach((report, index) => {
+        console.log(`📋 Reporte ${index + 1}:`, {
+            id: report.id,
+            userId: report.userId,
+            assignmentId: report.assignmentId,
+            createdAt: report.createdAt,
+            status: report.status,
+            hours: report.hours
+        });
+    });
+    
+    // Verificar assignmentIds en reportes vs projectAssignments
+    const reportAssignmentIds = new Set(reports.map(r => r.assignmentId).filter(id => id));
+    const projectAssignmentIds = new Set(Object.keys(currentData.projectAssignments || {}));
+    
+    console.log('🔗 AssignmentIds en reportes:', Array.from(reportAssignmentIds).slice(0, 5));
+    console.log('🔗 AssignmentIds en projectAssignments:', Array.from(projectAssignmentIds).slice(0, 5));
+    console.log('🔗 Intersección:', Array.from(reportAssignmentIds).filter(id => projectAssignmentIds.has(id)));
+    
+// Filtrar reportes de proyectos del mes y cliente
+    const projectReports = [];
+    
+    reports.forEach(report => {
+        const reportDate = new Date(report.createdAt);
+        
+        console.log('🔍 Examinando reporte:', {
+            id: report.id,
+            assignmentId: report.assignmentId,
+            date: reportDate,
+            inDateRange: reportDate >= monthStart && reportDate <= monthEnd
+        });
+        
+        // Verificar rango de fechas
+        if (!(reportDate >= monthStart && reportDate <= monthEnd)) {
+            console.log('❌ Reporte fuera del rango de fechas');
+            return;
+        }
+        
+        // Buscar asignación de proyecto
+        const projectAssignment = currentData.projectAssignments?.[report.assignmentId];
+        
+        console.log('🔍 ProjectAssignment encontrado:', projectAssignment);
+        
+        if (!projectAssignment) {
+            console.log('❌ No es reporte de proyecto');
+            return;
+        }
+        
+        if (projectAssignment.companyId !== clientId) {
+            console.log('❌ Proyecto de otro cliente');
+            return;
+        }
+        
+        // Filtrar por proyecto específico si se seleccionó uno
+        if (projectSelection !== 'todos' && projectAssignment.projectId !== projectSelection) {
+            console.log('❌ Proyecto no seleccionado');
+            return;
+        }
+        
+        console.log('✅ Reporte de proyecto válido agregado');
+        projectReports.push(report);
+    });
+    
+    console.log(`📋 ${projectReports.length} reportes de proyecto encontrados después del filtrado`);
+    
+    // Agrupar por proyecto y módulo
+    const projectData = {};
+    
+    projectReports.forEach(report => {
+        const projectAssignment = currentData.projectAssignments?.[report.assignmentId];
+        const project = currentData.projects?.[projectAssignment?.projectId];
+        const module = currentData.modules?.[projectAssignment?.moduleId];
+        
+        if (!project || !module) return;
+        
+        const projectKey = project.id;
+        const moduleKey = module.id;
+        
+        // Inicializar proyecto si no existe
+        if (!projectData[projectKey]) {
+            projectData[projectKey] = {
+                projectName: project.name,
+                modules: {}
+            };
+        }
+        
+        // Inicializar módulo si no existe
+        if (!projectData[projectKey].modules[moduleKey]) {
+            projectData[projectKey].modules[moduleKey] = {
+                moduleName: module.name,
+                totalHours: 0,
+                tarifa: module.tariff || 650,
+                total: 0
+            };
+        }
+        
+        // Acumular horas
+        const hours = parseFloat(report.hours || 0);
+        projectData[projectKey].modules[moduleKey].totalHours += hours;
+        projectData[projectKey].modules[moduleKey].total = 
+            projectData[projectKey].modules[moduleKey].totalHours * 
+            projectData[projectKey].modules[moduleKey].tarifa;
+    });
+    
+    console.log(`✅ ${Object.keys(projectData).length} proyectos procesados`);
+    return projectData;
+}
+
 /**
  * Obtener datos de proyecto
  */
@@ -4071,28 +4395,117 @@ function getConsultantProyectoData(reports, consultantId, projectId) {
  * Procesar datos según estructura específica del reporte
  */
 function processDataForReport(rawData, reportType) {
-    console.log('🔧 Procesando', rawData.length, 'registros para', reportType);
+    console.log('🔧 Procesando datos para', reportType);
     
-    // Los datos ya vienen en el formato correcto desde las funciones get*Data
+    // Manejar caso especial del reporte remanente con proyectos
+    if (reportType === 'remanente') {
+        if (!rawData || (!rawData.soportes && !rawData.proyectos)) {
+            console.log('❌ No hay datos válidos para remanente');
+            return [];
+        }
+        
+        console.log(`📊 Datos remanente: ${rawData.soportes?.length || 0} soportes, ${Object.keys(rawData.proyectos || {}).length} proyectos`);
+        
+        // Los datos ya vienen procesados correctamente de getRemanenteDataWithProjects
+        return rawData;
+    }
+    
+    // Para otros tipos de reporte, manejar como array
+    if (Array.isArray(rawData)) {
+        console.log('🔧 Procesando', rawData.length, 'registros para', reportType);
+        return rawData;
+    }
+    
+    console.log('⚠️ Tipo de datos no reconocido para', reportType);
     return rawData;
 }
 
 /**
- * Inicializar datos editables
+ * Inicializar datos editables desde los datos procesados
  */
 function initializeEditableData() {
+    console.log('📝 Inicializando datos editables para:', currentReportType);
+    
     editablePreviewData = {};
     
-    currentReportData.forEach((row, index) => {
-        editablePreviewData[index] = {
-            ...row,
-            editedTime: row.tiempo,
-            editedTariff: row.tarifaModulo,
-            editedTotal: row.total
-        };
-    });
+    // Manejar caso especial del reporte remanente con proyectos
+    if (currentReportType === 'remanente') {
+        if (!currentReportData || (!currentReportData.soportes && !currentReportData.proyectos)) {
+            console.log('❌ No hay datos para inicializar en remanente');
+            return;
+        }
+        
+        let index = 0;
+        
+        // 1. Inicializar datos de soportes
+        if (currentReportData.soportes && Array.isArray(currentReportData.soportes)) {
+            currentReportData.soportes.forEach((soporte) => {
+                editablePreviewData[index] = {
+                    type: 'soporte',
+                    ...soporte,
+                    originalData: { ...soporte }
+                };
+                index++;
+            });
+        }
+        
+// 2. Inicializar datos de proyectos
+if (currentReportData.proyectos) {
+    console.log('🔧 Procesando proyectos para edición:', currentReportData.proyectos);
     
-    console.log('✅ Datos editables inicializados:', Object.keys(editablePreviewData).length, 'registros');
+    if (Array.isArray(currentReportData.proyectos)) {
+        // Si es array (versión nueva)
+        currentReportData.proyectos.forEach((proyecto) => {
+            editablePreviewData[index] = {
+                type: 'project',
+                projectName: proyecto.projectName,
+                moduleName: proyecto.moduleName,
+                totalHours: proyecto.totalHours,
+                editedTime: proyecto.totalHours,
+                editedTariff: proyecto.tarifa,
+                editedTotal: proyecto.total,
+                originalData: { ...proyecto }
+            };
+            index++;
+        });
+    } else if (typeof currentReportData.proyectos === 'object') {
+        // Si es objeto (versión actual)
+        Object.entries(currentReportData.proyectos).forEach(([projectId, projectInfo]) => {
+            Object.entries(projectInfo.modules).forEach(([moduleId, moduleData]) => {
+                editablePreviewData[index] = {
+                    type: 'project',
+                    projectName: projectInfo.projectName,
+                    moduleName: moduleData.moduleName,
+                    totalHours: moduleData.totalHours,
+                    editedTime: moduleData.totalHours,
+                    editedTariff: moduleData.tarifa,
+                    editedTotal: moduleData.total,
+                    originalData: { ...moduleData }
+                };
+                index++;
+            });
+        });
+    }
+}
+        
+        console.log(`✅ Datos editables inicializados: ${index} elementos (soportes + proyectos)`);
+        return;
+    }
+    
+    // Para otros tipos de reporte (código existente)
+    if (Array.isArray(currentReportData)) {
+        currentReportData.forEach((row, index) => {
+            editablePreviewData[index] = {
+                ...row,
+                editedTime: row.tiempo || row.editedTime || 0,
+                editedTariff: row.tarifa || row.editedTariff || 0,
+                editedTotal: (row.tiempo || 0) * (row.tarifa || 0),
+                originalData: { ...row }
+            };
+        });
+        
+        console.log(`✅ ${Object.keys(editablePreviewData).length} filas inicializadas para edición`);
+    }
 }
 
 /**
@@ -4119,13 +4532,31 @@ function showEmptyPreview(previewPanel, report) {
  * Generar tabla editable
  */
 function generateEditableTable(previewPanel, report) {
-    const totalHours = currentReportData.reduce((sum, row) => sum + row.tiempo, 0);
-    const totalAmount = Object.values(editablePreviewData).reduce((sum, row) => sum + row.editedTotal, 0);
+    let totalHours, totalAmount, recordCount;
+
+    if (currentReportType === 'remanente') {
+        // Calcular totales para remanente con proyectos
+        totalHours = Object.values(editablePreviewData).reduce((sum, row) => {
+            if (row.type === 'soporte') {
+                return sum + (row.totalHoras || 0);
+            } else if (row.type === 'project') {
+                return sum + (row.totalHours || 0);
+            }
+            return sum;
+        }, 0);
+        totalAmount = Object.values(editablePreviewData).reduce((sum, row) => sum + (row.editedTotal || 0), 0);
+        recordCount = Object.keys(editablePreviewData).length;
+    } else {
+        // Calcular totales para otros reportes
+        totalHours = currentReportData.reduce((sum, row) => sum + row.tiempo, 0);
+        totalAmount = Object.values(editablePreviewData).reduce((sum, row) => sum + row.editedTotal, 0);
+        recordCount = currentReportData.length;
+    }
     
     let tableHTML = '';
     
     if (currentReportType === 'remanente') {
-        tableHTML = generateRemanenteTable();
+        tableHTML = generateRemanenteTableWithProjects();
     } else {
         tableHTML = generateStandardTable(report);
     }
@@ -4134,9 +4565,10 @@ function generateEditableTable(previewPanel, report) {
         <div class="preview-header">
             <div class="preview-title">👁️ Vista Previa - ${report.name}</div>
             <div class="preview-info">
-                ${currentReportData.length} registros | 
+                ${recordCount} registros | 
                 ${totalHours.toFixed(1)} horas | 
                 $${totalAmount.toLocaleString('es-MX', {minimumFractionDigits: 2})}
+                ${currentReportType === 'remanente' && currentReportData.hasProjects ? ' | 📋 Incluye Proyectos' : ''}
             </div>
         </div>
 
@@ -4362,6 +4794,239 @@ function generateRemanenteTable() {
 }
 
 /**
+ * Generar tabla remanente con sección de proyectos incluida
+ */
+function generateRemanenteTableWithProjects() {
+    console.log('📊 Generando tabla remanente con proyectos incluidos');
+    
+    let tableHTML = '';
+    
+    // 1. SECCIÓN DE SOPORTES (solo si hay soportes)
+    if (currentReportData.soportes && currentReportData.soportes.length > 0) {
+        console.log('📞 Generando sección de soportes');
+        
+        // Filtrar solo datos de soportes para la tabla existente
+        const soporteEditableData = {};
+        let soporteIndex = 0;
+        
+        Object.entries(editablePreviewData).forEach(([key, value]) => {
+            if (value.type === 'soporte') {
+                soporteEditableData[soporteIndex] = value;
+                soporteIndex++;
+            }
+        });
+        
+        // Temporalmente usar datos de soporte para función existente
+        const originalEditableData = editablePreviewData;
+        editablePreviewData = soporteEditableData;
+        
+        tableHTML += generateRemanenteTable();
+        
+        // Restaurar datos originales
+        editablePreviewData = originalEditableData;
+    } else {
+        console.log('📞 No hay soportes, omitiendo sección');
+        tableHTML += `
+            <div style="margin-bottom: 1rem; padding: 1rem; background: #f1f5f9; border-radius: 8px; text-align: center; color: #64748b;">
+                📞 No hay datos de soporte para este cliente y período
+            </div>
+        `;
+    }
+    
+    // 2. SECCIÓN DE PROYECTOS (si hay proyectos)
+    const hasProjectData = Object.keys(editablePreviewData).some(key => editablePreviewData[key].type === 'project');
+    console.log('🔍 Verificando proyectos:', { hasProjects: currentReportData.hasProjects, hasProjectData: hasProjectData });
+
+    if (hasProjectData) {
+        console.log('📋 Generando sección de proyectos');
+        tableHTML += generateProjectsSection();
+    } else {
+        console.log('📋 No hay proyectos para mostrar - hasProjectData:', hasProjectData);
+        if (currentReportData.projectSelection === 'ninguno') {
+            tableHTML += `
+                <div style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px; text-align: center; color: #64748b;">
+                    📋 Proyectos excluidos por selección de filtros
+                </div>
+            `;
+        }
+    }
+    
+    // Si no hay nada que mostrar
+    if (!tableHTML.includes('<table') && !tableHTML.includes('📋') && !tableHTML.includes('📞')) {
+        tableHTML = `
+            <div style="padding: 2rem; text-align: center; color: #64748b;">
+                <h3>📭 Sin Datos</h3>
+                <p>No se encontraron reportes para los filtros seleccionados.</p>
+            </div>
+        `;
+    }
+    
+    return tableHTML;
+}
+
+/**
+ * Generar sección de proyectos para la tabla remanente
+ */
+function generateProjectsSection() {
+    console.log('📋 Generando sección de proyectos');
+    
+    let projectsHTML = `
+        <div style="margin-top: 2rem; padding: 1rem; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
+            <h4 style="margin: 0 0 1rem 0; color: #1e40af; font-size: 1.125rem;">
+                📋 PROYECTOS DEL CLIENTE
+            </h4>
+        </div>
+        <table class="preview-table projects-table">
+            <thead>
+                <tr style="background: #dbeafe;">
+                    <th>Proyecto</th>
+                    <th>Módulo</th>
+                    <th>Total Horas</th>
+                    <th>Tarifa</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    // Agrupar proyectos por nombre
+    const projectGroups = {};
+    Object.entries(editablePreviewData).forEach(([index, row]) => {
+        if (row.type === 'project') {
+            if (!projectGroups[row.projectName]) {
+                projectGroups[row.projectName] = [];
+            }
+            projectGroups[row.projectName].push({ index: parseInt(index), data: row });
+        }
+    });
+    
+    // Generar filas por proyecto
+    Object.entries(projectGroups).forEach(([projectName, modules]) => {
+        // Fila de encabezado del proyecto
+        projectsHTML += `
+            <tr style="background: #eff6ff; font-weight: bold;">
+                <td colspan="5" style="color: #1d4ed8; font-size: 1rem;">
+                    🎯 ${projectName}
+                </td>
+            </tr>
+        `;
+        
+        // Filas de módulos del proyecto
+        modules.forEach(({ index, data }) => {
+            projectsHTML += `
+                <tr data-project-row="${index}">
+                    <td style="padding-left: 2rem; color: #64748b;">└─ ${data.projectName}</td>
+                    <td><strong>${data.moduleName}</strong></td>
+                    <td class="editable-cell" 
+                        onclick="editProjectCell(${index}, 'time')"
+                        title="Clic para editar horas">
+                        ${data.editedTime || data.totalHours || 0}
+                    </td>
+                    <td class="editable-cell" 
+                        onclick="editProjectCell(${index}, 'tariff')"
+                        title="Clic para editar tarifa">
+                        $${data.editedTariff || data.tarifa || 0}
+                    </td>
+                    <td><strong>$${(data.editedTotal || data.total || 0).toLocaleString('es-MX', {minimumFractionDigits: 2})}</strong></td>
+                </tr>
+            `;
+        });
+    });
+    
+    projectsHTML += `
+            </tbody>
+        </table>
+    `;
+    
+    return projectsHTML;
+}
+
+/**
+ * Editar celda de proyecto en la vista previa
+ */
+function editProjectCell(rowIndex, field) {
+    console.log(`✏️ Editando proyecto fila ${rowIndex}, campo ${field}`);
+    
+    const row = editablePreviewData[rowIndex];
+    if (!row || row.type !== 'project') {
+        console.error('❌ Fila de proyecto no encontrada:', rowIndex);
+        return;
+    }
+    
+    // Obtener valor actual
+    let currentValue;
+    if (field === 'time') {
+        currentValue = row.editedTime || row.totalHours || 0;
+    } else if (field === 'tariff') {
+        currentValue = row.editedTariff || row.tarifa || 0;
+    } else {
+        console.error('❌ Campo no válido:', field);
+        return;
+    }
+    
+    // Solicitar nuevo valor
+    const fieldName = field === 'time' ? 'Horas' : 'Tarifa';
+    const newValue = prompt(`Editar ${fieldName} para ${row.moduleName}:`, currentValue);
+    
+    if (newValue === null) return; // Usuario canceló
+    
+    const numValue = parseFloat(newValue);
+    if (isNaN(numValue) || numValue < 0) {
+        alert('❌ Por favor ingrese un número válido mayor o igual a 0');
+        return;
+    }
+    
+    // Actualizar datos
+    if (field === 'time') {
+        row.editedTime = numValue;
+        row.totalHours = numValue; // Mantener sincronizado
+    } else if (field === 'tariff') {
+        row.editedTariff = numValue;
+    }
+    
+    // Recalcular total
+    row.editedTotal = (row.editedTime || row.totalHours || 0) * (row.editedTariff || row.tarifa || 0);
+    
+    // Actualizar display
+    updateProjectRowDisplay(rowIndex);
+    updateGeneralTotals();
+    
+    console.log(`📊 Proyecto actualizado: ${row.moduleName} = ${row.editedTime || row.totalHours} hrs x $${row.editedTariff || row.tarifa} = $${row.editedTotal.toFixed(2)}`);
+}
+
+/**
+ * Actualizar display de fila de proyecto después de edición
+ */
+function updateProjectRowDisplay(rowIndex) {
+    const row = editablePreviewData[rowIndex];
+    if (!row || row.type !== 'project') return;
+    
+    // Buscar la fila en la tabla
+    const projectRow = document.querySelector(`[data-project-row="${rowIndex}"]`);
+    if (!projectRow) {
+        console.error('❌ No se encontró la fila del proyecto:', rowIndex);
+        return;
+    }
+    
+    const cells = projectRow.querySelectorAll('td');
+    
+    // Actualizar celda de horas (índice 2)
+    if (cells[2]) {
+        cells[2].textContent = row.editedTime || row.totalHours || 0;
+    }
+    
+    // Actualizar celda de tarifa (índice 3)
+    if (cells[3]) {
+        cells[3].textContent = `$${row.editedTariff || row.tarifa || 0}`;
+    }
+    
+    // Actualizar celda de total (índice 4)
+    if (cells[4]) {
+        cells[4].innerHTML = `<strong>$${row.editedTotal.toLocaleString('es-MX', {minimumFractionDigits: 2})}</strong>`;
+    }
+}
+
+/**
  * Actualizar cálculos cuando se edita una celda (tabla estándar)
  */
 function updateRowCalculation(rowIndex, field, value) {
@@ -4495,20 +5160,20 @@ function updateGeneralTotals() {
     let totalHours, totalAmount;
     
         if (currentReportType === 'remanente') {
-            // Para remanente, sumar todas las semanas dinámicamente
-            totalHours = Object.values(editablePreviewData).reduce((sum, row) => sum + row.totalHoras, 0);
-            totalAmount = Object.values(editablePreviewData).reduce((sum, row) => {
-                const weekStructure = row.monthStructure;
-                let rowTotal = 0;
-                for (let i = 1; i <= weekStructure.totalWeeks; i++) {
-                    const semanaData = row[`semana${i}`];
-                    if (semanaData) {
-                        rowTotal += parseFloat(semanaData.total || 0);
-                    }
+            // Calcular totales combinados de soportes y proyectos
+            totalHours = Object.values(editablePreviewData).reduce((sum, row) => {
+                if (row.type === 'soporte') {
+                    return sum + (row.totalHoras || 0);
+                } else if (row.type === 'project') {
+                    return sum + (row.editedTime || row.totalHours || 0);
                 }
-                return sum + rowTotal;
+                return sum;
             }, 0);
-        } else {
+            
+            totalAmount = Object.values(editablePreviewData).reduce((sum, row) => {
+                return sum + (row.editedTotal || 0);
+            }, 0);
+        } else { 
         // Para reportes estándar
         totalHours = Object.values(editablePreviewData).reduce((sum, row) => sum + row.editedTime, 0);
         totalAmount = Object.values(editablePreviewData).reduce((sum, row) => sum + row.editedTotal, 0);
