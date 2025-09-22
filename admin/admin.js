@@ -2155,10 +2155,41 @@ function loadSectionData(sectionName) {
                 console.log('📝 Sección crear-asignacion - dropdowns se actualizarán por separado');
                 break;
             case 'generar-reporte':
-                // Reiniciar configuración de reportes
-                selectedReportType = null;
-                currentReportData = [];
-                tariffConfiguration = {};
+                // 🆕 SOLUCIÓN: Forzar recarga completa de datos antes de generar reportes
+                console.log('🔄 Forzando recarga de datos para generar-reporte...');
+                
+                // Recargar todos los datos críticos
+                currentData.reports = window.PortalDB.getReports() || {};
+                currentData.users = window.PortalDB.getUsers() || {};
+                currentData.companies = window.PortalDB.getCompanies() || {};
+                currentData.projects = window.PortalDB.getProjects() || {};
+                currentData.assignments = window.PortalDB.getAssignments() || {};
+                currentData.supports = window.PortalDB.getSupports() || {};
+                currentData.modules = window.PortalDB.getModules() || {};
+                currentData.projectAssignments = window.PortalDB.getProjectAssignments() || {};
+                
+                // Verificar que los datos se cargaron correctamente
+                console.log('📊 Datos recargados para generar-reporte:', {
+                    reportes: Object.keys(currentData.reports).length,
+                    usuarios: Object.keys(currentData.users).length,
+                    empresas: Object.keys(currentData.companies).length,
+                    asignaciones: Object.keys(currentData.assignments).length,
+                    soportes: Object.keys(currentData.supports).length,
+                    modulos: Object.keys(currentData.modules).length,
+                    proyectoAsignaciones: Object.keys(currentData.projectAssignments).length
+                });
+                
+                // Reinicializar el selector de reportes
+                initializeReportSelector();
+                
+                // 🆕 AGREGAR: Configurar filtro de tiempo por defecto
+                setTimeout(() => {
+                    const timeFilter = document.getElementById('timeFilter');
+                    if (timeFilter) {
+                        timeFilter.value = 'all';
+                        console.log('⏰ Filtro de tiempo configurado a: all');
+                    }
+                }, 200);
                 break;
             case 'historial-reportes':
                 updateGeneratedReportsList();
@@ -3691,7 +3722,6 @@ function handleTimeFilterChange() {
 function resetReportFilters() {
     console.log('🔄 Reseteando filtros...');
     
-    // Resetear todos los selects y inputs
     const configPanel = document.getElementById('reportConfigPanel');
     if (configPanel) {
         const selects = configPanel.querySelectorAll('select');
@@ -3699,7 +3729,7 @@ function resetReportFilters() {
         
         selects.forEach(select => {
             if (select.id === 'timeFilter') {
-                select.value = 'week';
+                select.value = 'all';    // ← CAMBIADO DE 'week' A 'all'
             } else if (select.options[0]) {
                 select.selectedIndex = 0;
             }
@@ -3722,6 +3752,35 @@ function resetReportFilters() {
     window.NotificationUtils.info('Filtros restablecidos');
 }
 
+// === FUNCIÓN ADICIONAL: Verificar datos antes de generar vista previa ===
+function verifyDataBeforePreview() {
+    console.log('🔍 Verificando datos antes de generar vista previa...');
+    
+    const dataChecks = {
+        reports: Object.keys(currentData.reports || {}).length,
+        users: Object.keys(currentData.users || {}).length,
+        companies: Object.keys(currentData.companies || {}).length,
+        assignments: Object.keys(currentData.assignments || {}).length,
+        supports: Object.keys(currentData.supports || {}).length,
+        modules: Object.keys(currentData.modules || {}).length
+    };
+    
+    console.log('📊 Estado de datos:', dataChecks);
+    
+    // Verificar si hay reportes aprobados
+    const approvedReports = Object.values(currentData.reports || {})
+        .filter(r => r.status === 'Aprobado');
+    
+    console.log('✅ Reportes aprobados encontrados:', approvedReports.length);
+    
+    if (approvedReports.length === 0) {
+        console.warn('⚠️ No hay reportes aprobados disponibles');
+        return false;
+    }
+    
+    return true;
+}
+
 /**
  * Generar vista previa con datos reales y tabla editable
  */
@@ -3737,6 +3796,27 @@ function generateReportPreview() {
     }
     
     try {
+
+        // 🆕 VERIFICACIÓN: Asegurar que los datos están cargados
+        if (!verifyDataBeforePreview()) {
+            console.log('🔄 Recargando datos debido a verificación fallida...');
+            
+            // Forzar recarga de datos
+            currentData.reports = window.PortalDB.getReports() || {};
+            currentData.users = window.PortalDB.getUsers() || {};
+            currentData.companies = window.PortalDB.getCompanies() || {};
+            currentData.assignments = window.PortalDB.getAssignments() || {};
+            currentData.supports = window.PortalDB.getSupports() || {};
+            currentData.modules = window.PortalDB.getModules() || {};
+            currentData.projectAssignments = window.PortalDB.getProjectAssignments() || {};
+            
+            // Verificar nuevamente
+            if (!verifyDataBeforePreview()) {
+                window.NotificationUtils.error('No hay reportes aprobados disponibles para generar la vista previa');
+                return;
+            }
+        }
+
         // 1. Obtener datos según filtros
         const rawData = getReportDataByType(currentReportType);
         
@@ -3772,33 +3852,105 @@ function generateReportPreview() {
 }
 
 /**
- * Obtener datos según el tipo de reporte y filtros aplicados
+ * Obtener datos según el tipo de reporte y filtros aplicados - CON DIAGNÓSTICO
  */
 function getReportDataByType(reportType) {
-    console.log('📊 Obteniendo datos para:', reportType);
+    console.log('📊 === DIAGNÓSTICO COMPLETO getReportDataByType ===');
+    console.log('🎯 Tipo de reporte:', reportType);
     
     // Obtener reportes aprobados
     const allReports = Object.values(currentData.reports || {});
+    console.log('📋 Total de reportes en sistema:', allReports.length);
+    
     let approvedReports = allReports.filter(r => r.status === 'Aprobado');
+    console.log('✅ Reportes aprobados antes de filtro tiempo:', approvedReports.length);
+    
+    // Mostrar algunos reportes de ejemplo
+    if (approvedReports.length > 0) {
+        console.log('📄 Ejemplo de reporte aprobado:', {
+            id: approvedReports[0].id,
+            userId: approvedReports[0].userId,
+            assignmentId: approvedReports[0].assignmentId,
+            createdAt: approvedReports[0].createdAt,
+            hours: approvedReports[0].hours,
+            status: approvedReports[0].status
+        });
+    }
+    
+    // Verificar filtro de tiempo ANTES de aplicarlo
+    const timeFilter = document.getElementById('timeFilter');
+    console.log('⏰ Filtro de tiempo actual:', timeFilter ? timeFilter.value : 'NO ENCONTRADO');
     
     // Aplicar filtro de tiempo
     approvedReports = applyTimeFilter(approvedReports);
+    console.log('✅ Reportes aprobados DESPUÉS de filtro tiempo:', approvedReports.length);
+    
+    // Si no hay reportes después del filtro de tiempo, es probable que sea el problema
+    if (approvedReports.length === 0) {
+        console.error('❌ NO HAY REPORTES DESPUÉS DEL FILTRO DE TIEMPO');
+        console.log('💡 Esto indica que todos los reportes son más antiguos que el periodo seleccionado');
+        console.log('💡 Cambie el filtro de tiempo a "Todas las fechas" o "Personalizado"');
+        return [];
+    }
+    
+    // Verificar datos de asignaciones
+    console.log('🔗 Datos de asignaciones disponibles:');
+    console.log('   - Asignaciones normales:', Object.keys(currentData.assignments || {}).length);
+    console.log('   - Asignaciones de proyecto:', Object.keys(currentData.projectAssignments || {}).length);
     
     switch (reportType) {
         case 'pago-consultor-general':
-            return getSoporteData(approvedReports, 'all', 'all');
+            console.log('💰 Procesando pago-consultor-general...');
+            const resultSoporte = getSoporteData(approvedReports, 'all', 'all');
+            console.log('📊 Resultado getSoporteData:', resultSoporte.length);
+            return resultSoporte;
             
         case 'pago-consultor-especifico':
+            console.log('👤 Procesando pago-consultor-especifico...');
             const consultantId = document.getElementById('consultantFilter')?.value;
             const supportId = document.getElementById('supportFilter')?.value || 'all';
-            return getSoporteData(approvedReports, consultantId, supportId);
+            console.log('🎯 Filtros aplicados:', { consultantId, supportId });
+            const resultConsultor = getSoporteData(approvedReports, consultantId, supportId);
+            console.log('📊 Resultado getSoporteData específico:', resultConsultor.length);
+            return resultConsultor;
             
         case 'cliente-soporte':
+            console.log('🏢 Procesando cliente-soporte...');
             const clientId = document.getElementById('clientFilter')?.value;
             const clientSupportId = document.getElementById('supportFilter')?.value || 'all';
-            return getClientSoporteData(approvedReports, clientId, clientSupportId);
+            console.log('🎯 Filtros aplicados:', { clientId, clientSupportId });
+            const resultCliente = getClientSoporteData(approvedReports, clientId, clientSupportId);
+            console.log('📊 Resultado getClientSoporteData:', resultCliente.length);
+            return resultCliente;
             
-       case 'remanente':
+        case 'proyecto-general':
+            console.log('📋 Procesando proyecto-general...');
+            const projectId = document.getElementById('projectFilter')?.value || 'all';
+            console.log('🎯 Filtros aplicados:', { projectId });
+            const resultProyecto = getProyectoData(approvedReports, 'all', projectId);
+            console.log('📊 Resultado getProyectoData:', resultProyecto.length);
+            return resultProyecto;
+            
+        case 'proyecto-cliente':
+            console.log('🏢 Procesando proyecto-cliente...');
+            const proyectoClientId = document.getElementById('clientFilter')?.value;
+            const proyectoProjectId = document.getElementById('projectFilter')?.value || 'all';
+            console.log('🎯 Filtros aplicados:', { proyectoClientId, proyectoProjectId });
+            const resultProyectoCliente = getClientProyectoData(approvedReports, proyectoClientId, proyectoProjectId);
+            console.log('📊 Resultado getClientProyectoData:', resultProyectoCliente.length);
+            return resultProyectoCliente;
+            
+        case 'proyecto-consultor':
+            console.log('👤 Procesando proyecto-consultor...');
+            const proyectoConsultorId = document.getElementById('consultantFilter')?.value;
+            const proyectoConsultorProjectId = document.getElementById('projectFilter')?.value || 'all';
+            console.log('🎯 Filtros aplicados:', { proyectoConsultorId, proyectoConsultorProjectId });
+            const resultProyectoConsultor = getConsultantProyectoData(approvedReports, proyectoConsultorId, proyectoConsultorProjectId);
+            console.log('📊 Resultado getConsultantProyectoData:', resultProyectoConsultor.length);
+            return resultProyectoConsultor;
+            
+        case 'remanente':
+            console.log('📊 Procesando remanente...');
             const remanenteClientId = document.getElementById('clientFilter')?.value;
             const specificSupportId = document.getElementById('supportTypeFilter')?.value;
             const monthKey = document.getElementById('monthFilter')?.value;
@@ -3815,20 +3967,9 @@ function getReportDataByType(reportType) {
                 mes: monthKey,
                 proyectos: projectSelection
             });
-            return getRemanenteDataWithProjects(approvedReports, remanenteClientId, specificSupportId, monthKey, projectSelection);
-            
-        case 'proyecto-general':
-            return getProyectoData(approvedReports, 'all', 'all');
-            
-        case 'proyecto-cliente':
-            const proyectoClientId = document.getElementById('clientFilter')?.value;
-            const projectId = document.getElementById('projectFilter')?.value || 'all';
-            return getClientProyectoData(approvedReports, proyectoClientId, projectId);
-            
-        case 'proyecto-consultor':
-            const proyectoConsultantId = document.getElementById('consultantFilter')?.value;
-            const consultantProjectId = document.getElementById('projectFilter')?.value || 'all';
-            return getConsultantProyectoData(approvedReports, proyectoConsultantId, consultantProjectId);
+            const resultRemanente = getRemanenteDataWithProjects(approvedReports, remanenteClientId, specificSupportId, monthKey, projectSelection);
+            console.log('📊 Resultado getRemanenteDataWithProjects:', resultRemanente);
+            return resultRemanente;
             
         default:
             console.error('❌ Tipo de reporte no reconocido:', reportType);
@@ -3842,6 +3983,11 @@ function getReportDataByType(reportType) {
 function applyTimeFilter(reports) {
     const timeFilter = document.getElementById('timeFilter');
     if (!timeFilter) return reports;
+    
+    // 🆕 Forzar valor por defecto
+    if (!timeFilter.value || timeFilter.value === 'week') {
+        timeFilter.value = 'all';
+    }
     
     const now = new Date();
     const timeValue = timeFilter.value;
@@ -3862,7 +4008,7 @@ function applyTimeFilter(reports) {
             if (startDate && endDate) {
                 const start = new Date(startDate);
                 const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999); // Incluir todo el día final
+                end.setHours(23, 59, 59, 999);
                 
                 return reports.filter(r => {
                     const reportDate = new Date(r.createdAt);
