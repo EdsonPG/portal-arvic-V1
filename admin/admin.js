@@ -3199,7 +3199,7 @@ function initializeReportSelector() {
  */
 function selectNewReportType(reportType) {
     console.log('📋 Seleccionando reporte:', reportType);
-    
+
     // 1. Ocultar paneles anteriores
     const configPanel = document.getElementById('reportConfigPanel');
     const previewPanel = document.getElementById('reportPreviewPanel');
@@ -3212,6 +3212,8 @@ function selectNewReportType(reportType) {
     currentReportConfig = null;
     editablePreviewData = {};
     
+    hideExportSection();
+
     // 3. Actualizar selector visual
     document.querySelectorAll('.report-option').forEach(option => {
         option.classList.remove('active');
@@ -4587,6 +4589,9 @@ function generateEditableTable(previewPanel, report) {
             <button class="btn btn-primary" onclick="generateFinalReport()">
                 📊 Generar Reporte Excel Final
             </button>
+            <button class="btn btn-danger pdf-export-btn" onclick="exportExcelToPDF('${currentReportType}')" style="display: none;">
+                📄 Exportar PDF
+            </button>
         </div>
     `;
 }
@@ -5331,7 +5336,12 @@ function generatePagoGeneralExcel() {
     // Guardar en historial
     saveToReportHistory(fileName, 'pago-consultor-general', totalHours, totalAmount);
     
+    addPDFExportButton('pago-consultor-general');
+
     window.NotificationUtils.success(`Excel generado: ${fileName}`);
+
+    // Mostrar botón PDF y sección de exportación
+    showPDFExportButton('pago-consultor-general');
 }
 
 /**
@@ -5391,8 +5401,12 @@ function generatePagoConsultorExcel() {
     const fileName = generateFileName('PagoConsultor');
     XLSX.writeFile(wb, fileName);
     saveToReportHistory(fileName, 'pago-consultor-especifico', totalHours, totalAmount);
-    
+
+    addPDFExportButton('pago-consultor-especifico');
+
     window.NotificationUtils.success(`Excel generado: ${fileName}`);
+
+    showPDFExportButton('pago-consultor-especifico');
 }
 
 /**
@@ -5445,7 +5459,11 @@ function generateClienteSoporteExcel() {
     XLSX.writeFile(wb, fileName);
     saveToReportHistory(fileName, 'cliente-soporte', totalHours, totalAmount);
     
+    addPDFExportButton('cliente-soporte');
+
     window.NotificationUtils.success(`Excel generado: ${fileName}`);
+
+    showPDFExportButton('cliente-soporte');
 }
 
 /**
@@ -5645,7 +5663,15 @@ function generateRemanenteExcel() {
     
     saveToReportHistory(fileName, 'remanente', totalHours, totalAmount);
     
+<<<<<<< HEAD
     window.NotificationUtils.success(`Excel Remanente generado: ${fileName} (${soporteData.length + projectData.length} elementos)`);
+=======
+    addPDFExportButton('remanente');
+
+    window.NotificationUtils.success(`Excel Remanente generado: ${fileName} (${soporteData.length + projectData.length} elementos)`);
+
+    showPDFExportButton('remanente');
+>>>>>>> a98b3ab0ba2384ab6715236f90fbd8e88196dd39
 }
 
 /**
@@ -5691,7 +5717,11 @@ function generateProyectoGeneralExcel() {
     XLSX.writeFile(wb, fileName);
     saveToReportHistory(fileName, 'proyecto-general', totalHours, totalAmount);
     
+    addPDFExportButton('proyecto-general');
+
     window.NotificationUtils.success(`Excel generado: ${fileName}`);
+
+    showPDFExportButton('proyecto-general');
 }
 
 /**
@@ -5737,7 +5767,11 @@ function generateProyectoClienteExcel() {
     XLSX.writeFile(wb, fileName);
     saveToReportHistory(fileName, 'proyecto-cliente', totalHours, totalAmount);
     
+    addPDFExportButton('proyecto-cliente');
+
     window.NotificationUtils.success(`Excel generado: ${fileName}`);
+
+    showPDFExportButton('proyecto-cliente');
 }
 
 /**
@@ -5785,7 +5819,11 @@ function generateProyectoConsultorExcel() {
     XLSX.writeFile(wb, fileName);
     saveToReportHistory(fileName, 'proyecto-consultor', totalHours, totalAmount);
     
+    addPDFExportButton('proyecto-consultor');
+
     window.NotificationUtils.success(`Excel generado: ${fileName}`);
+
+    showPDFExportButton('proyecto-consultor');
 }
 
 /**
@@ -6005,6 +6043,75 @@ function ensureReportSelectorInitialized() {
     const reportGrid = document.getElementById('reportGrid');
     if (reportGrid && reportGrid.children.length === 0) {
         initializeReportSelector();
+    }
+}
+
+/**
+ * Mostrar botón PDF después de generar Excel
+ */
+function showPDFExportButton(reportType) {
+    console.log('📄 Mostrando botón PDF para:', reportType);
+    
+    // Mostrar botón PDF en la tabla editable
+    const pdfBtn = document.querySelector('.pdf-export-btn');
+    if (pdfBtn) {
+        pdfBtn.style.display = 'inline-flex';
+        pdfBtn.onclick = () => exportExcelToPDF(reportType);
+    }
+    
+    // Mostrar sección de exportación
+    const exportSection = document.getElementById('exportSection');
+    if (exportSection) {
+        exportSection.style.display = 'block';
+        
+        // Agregar botón específico en la sección de exportación
+        const exportButtons = document.getElementById('exportButtons');
+        if (exportButtons) {
+            exportButtons.innerHTML = `
+                <button class="btn btn-primary" onclick="generateFinalReport()">
+                    📊 Regenerar Excel
+                </button>
+                <button class="btn btn-danger pdf-export-btn" onclick="exportExcelToPDF('${reportType}')">
+                    📄 Exportar a PDF
+                </button>
+            `;
+        }
+        
+        // Scroll suave hacia la sección
+        exportSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+/**
+ * Exportar reporte actual directamente a PDF
+ */
+function exportCurrentReportToPDF() {
+    if (!editablePreviewData || Object.keys(editablePreviewData).length === 0) {
+        window.NotificationUtils.error('Primero genera el reporte Excel para obtener los datos');
+        return;
+    }
+    
+    if (!currentReportType) {
+        window.NotificationUtils.error('Tipo de reporte no identificado');
+        return;
+    }
+    
+    // Llamar función del sistema PDF
+    exportExcelToPDF(currentReportType);
+}
+
+/**
+ * Ocultar sección de exportación al cambiar reporte
+ */
+function hideExportSection() {
+    const exportSection = document.getElementById('exportSection');
+    if (exportSection) {
+        exportSection.style.display = 'none';
+    }
+    
+    const pdfBtn = document.querySelector('.pdf-export-btn');
+    if (pdfBtn) {
+        pdfBtn.style.display = 'none';
     }
 }
 
