@@ -3422,6 +3422,9 @@ if (report.filters.includes('project')) {
                 <button class="btn btn-primary" onclick="generateFinalReport()" id="generateBtn" disabled>
                     📊 Generar Excel
                 </button>
+                <button class="btn btn-info" onclick="exportCurrentReportToPDF()" id="exportPDFBtn" disabled>
+                    📄 Exportar PDF
+                </button>
             </div>
         </div>
     `;
