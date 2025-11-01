@@ -1,6 +1,7 @@
 /**
  * === SISTEMA DE BASE DE DATOS PARA PORTAL ARVIC CON API ===
  * Conecta con el backend en lugar de usar localStorage
+ * VERSIÓN CORREGIDA: Convierte arrays a objetos para compatibilidad
  */
 
 class PortalDatabase {
@@ -23,6 +24,18 @@ class PortalDatabase {
             headers['Authorization'] = `Bearer ${this.token}`;
         }
         return headers;
+    }
+
+    // === HELPER: Convertir array a objeto ===
+    arrayToObject(array) {
+        if (!Array.isArray(array)) return {};
+        const obj = {};
+        array.forEach(item => {
+            if (item && item.id) {
+                obj[item.id] = item;
+            }
+        });
+        return obj;
     }
 
     // === AUTENTICACIÓN ===
@@ -61,10 +74,11 @@ class PortalDatabase {
                 headers: this.getHeaders()
             });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
             console.error('Error obteniendo usuarios:', error);
-            return [];
+            return {};
         }
     }
 
@@ -129,10 +143,11 @@ class PortalDatabase {
                 headers: this.getHeaders()
             });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
             console.error('Error obteniendo empresas:', error);
-            return [];
+            return {};
         }
     }
 
@@ -192,16 +207,17 @@ class PortalDatabase {
         try {
             const response = await fetch(`${this.API_URL}/projects`, { headers: this.getHeaders() });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
-            return [];
+            return {};
         }
     }
 
     async getProject(projectId) {
         try {
             const projects = await this.getProjects();
-            return projects.find(p => p.id === projectId) || null;
+            return projects[projectId] || null;
         } catch (error) {
             return null;
         }
@@ -225,16 +241,17 @@ class PortalDatabase {
         try {
             const response = await fetch(`${this.API_URL}/supports`, { headers: this.getHeaders() });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
-            return [];
+            return {};
         }
     }
 
     async getSupport(supportId) {
         try {
             const supports = await this.getSupports();
-            return supports.find(s => s.id === supportId) || null;
+            return supports[supportId] || null;
         } catch (error) {
             return null;
         }
@@ -258,16 +275,17 @@ class PortalDatabase {
         try {
             const response = await fetch(`${this.API_URL}/modules`, { headers: this.getHeaders() });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
-            return [];
+            return {};
         }
     }
 
     async getModule(moduleId) {
         try {
             const modules = await this.getModules();
-            return modules.find(m => m.id === moduleId) || null;
+            return modules[moduleId] || null;
         } catch (error) {
             return null;
         }
@@ -291,16 +309,17 @@ class PortalDatabase {
         try {
             const response = await fetch(`${this.API_URL}/assignments`, { headers: this.getHeaders() });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
-            return [];
+            return {};
         }
     }
 
     async getAssignment(assignmentId) {
         try {
             const assignments = await this.getAssignments();
-            return assignments.find(a => a.id === assignmentId) || null;
+            return assignments[assignmentId] || null;
         } catch (error) {
             return null;
         }
@@ -349,16 +368,17 @@ class PortalDatabase {
         try {
             const response = await fetch(`${this.API_URL}/assignments/projects`, { headers: this.getHeaders() });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
-            return [];
+            return {};
         }
     }
 
     async getProjectAssignment(assignmentId) {
         try {
             const assignments = await this.getProjectAssignments();
-            return assignments.find(a => a.id === assignmentId) || null;
+            return assignments[assignmentId] || null;
         } catch (error) {
             return null;
         }
@@ -402,17 +422,18 @@ class PortalDatabase {
         }
     }
 
-    // === ASIGNACIONES DE TAREAS ⭐ NUEVO ===
+    // === ASIGNACIONES DE TAREAS ===
     async getTaskAssignments() {
         try {
             const response = await fetch(`${this.API_URL}/assignments/tasks`, { 
                 headers: this.getHeaders() 
             });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
             console.error('Error obteniendo task assignments:', error);
-            return [];
+            return {};
         }
     }
 
@@ -458,7 +479,7 @@ class PortalDatabase {
     async getTaskAssignmentsByConsultor(consultorId) {
         try {
             const tasks = await this.getTaskAssignments();
-            return tasks.filter(task => task.consultorId === consultorId && task.isActive);
+            return Object.values(tasks).filter(task => task.consultorId === consultorId && task.isActive);
         } catch (error) {
             console.error('Error obteniendo tareas por consultor:', error);
             return [];
@@ -468,7 +489,7 @@ class PortalDatabase {
     async getTaskAssignmentsByCompany(companyId) {
         try {
             const tasks = await this.getTaskAssignments();
-            return tasks.filter(task => task.companyId === companyId && task.isActive);
+            return Object.values(tasks).filter(task => task.companyId === companyId && task.isActive);
         } catch (error) {
             console.error('Error obteniendo tareas por cliente:', error);
             return [];
@@ -530,9 +551,10 @@ class PortalDatabase {
                 : `${this.API_URL}/reports`;
             const response = await fetch(url, { headers: this.getHeaders() });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
-            return [];
+            return {};
         }
     }
 
@@ -569,9 +591,10 @@ class PortalDatabase {
                 headers: this.getHeaders() 
             });
             const data = await response.json();
-            return data.success ? data.data : [];
+            // ⭐ CONVERTIR array a objeto
+            return data.success ? this.arrayToObject(data.data) : {};
         } catch (error) {
-            return [];
+            return {};
         }
     }
 
