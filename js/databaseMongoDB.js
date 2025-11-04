@@ -1034,25 +1034,32 @@ class PortalDatabase {
         }
     }
 
-    // === GESTIÓN DE REPORTES ===
-    async getReports() {
+        // === GESTIÓN DE REPORTES ===
+        async getReports() {
         try {
             const response = await fetch(`${this.API_URL}/reports`, {
-                method: 'GET',
+                method: 'GET', 
                 headers: this.getHeaders()
             });
             const result = await response.json();
             
             if (result.success) {
-                const reports = {};
+                const reportsObj = {};
                 result.data.forEach(report => {
-                    reports[report.reportId] = report;  // ✅ Usar reportId
+                    // ⭐ MAPPER: Agregar campo "id" que apunte a reportId
+                    const mappedReport = {
+                        ...report,
+                        id: report.reportId || report._id,  // ✅ AGREGAR ESTA LÍNEA
+                        status: report.status || report.estado
+                    };
+                    reportsObj[report.reportId] = mappedReport;
                 });
-                return reports;
+                return reportsObj;
             }
+            
             return {};
         } catch (error) {
-            console.error('Error obteniendo reportes:', error);
+            console.error('❌ Error obteniendo reportes:', error);
             return {};
         }
     }

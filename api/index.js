@@ -1,9 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const path = require('path');
 // Configurar dotenv para buscar el .env en la raíz del proyecto
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+console.log('🔍 MONGODB_URI cargada:', process.env.MONGODB_URI ? '✅ SI' : '❌ NO');
 const User = require('./models/User');
 
 const app = express();
@@ -34,10 +35,8 @@ app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
 app.use('/consultor', express.static(path.join(__dirname, '..', 'consultor')));
 
 // Conectar a MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGODB_URI)
+
 .then(() => console.log('✅ MongoDB conectado'))
 .catch(err => console.error('❌ Error de conexión MongoDB:', err));
 
