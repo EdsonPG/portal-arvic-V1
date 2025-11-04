@@ -1271,75 +1271,78 @@ class PortalDatabase {
     }
 
     // === GESTIÓN DE TARIFARIO ===
-    async getTarifarios() {
-        try {
-            const response = await fetch(`${this.API_URL}/tarifario`, {
-                method: 'GET',
-                headers: this.getHeaders()
-            });
-            const result = await response.json();
-            
-            if (result.success) {
-                const tarifarios = {};
-                result.data.forEach(tarifario => {
-                    // ✅ MAPPER: Convertir campos de MongoDB al formato esperado
-                    const tarifarioMapeado = {
-                        // Campos originales
-                        id: tarifario.tarifarioId,
-                        tarifarioId: tarifario.tarifarioId,
-                        
-                        // IDs
-                        idAsignacion: tarifario.assignmentId,
-                        consultorId: tarifario.consultorId,
-                        clienteId: tarifario.companyId,
-                        
-                        // Nombres mapeados (MongoDB → Formato esperado)
-                        consultorNombre: tarifario.consultorNombre,
-                        clienteNombre: tarifario.companyName,      // ✅ companyName → clienteNombre
-                        moduloNombre: tarifario.moduleName,         // ✅ moduleName → moduloNombre
-                        
-                        // Trabajo (puede ser soporte o proyecto)
-                        trabajoNombre: tarifario.supportName || tarifario.projectName || 'N/A',  // ✅ Combinar ambos
-                        
-                        // Módulo y tipo
-                        modulo: tarifario.moduleId,
-                        tipo: tarifario.tipo === 'support' ? 'soporte' : 
-                            tarifario.tipo === 'project' ? 'proyecto' : 'tarea',  // ✅ Traducir tipo
-                        
-                        // Costos y margen
-                        costoConsultor: tarifario.costoConsultor || 0,
-                        costoCliente: tarifario.costoCliente || 0,
-                        margen: tarifario.margen || 0,
-                        
-                        // Campos adicionales
-                        descripcionTarea: tarifario.descripcionTarea || null,
-                        fechaCreacion: tarifario.fechaCreacion || tarifario.createdAt,
-                        isActive: tarifario.isActive !== false,
-                        
-                        // IDs adicionales (para referencias)
-                        supportId: tarifario.supportId,
-                        projectId: tarifario.projectId,
-                        moduleId: tarifario.moduleId
-                    };
+async getTarifarios() {
+    try {
+        const response = await fetch(`${this.API_URL}/tarifario`, {
+            method: 'GET',
+            headers: this.getHeaders()
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            const tarifarios = {};
+            result.data.forEach(tarifario => {
+                // ✅ MAPPER CORREGIDO: MongoDB → Formato frontend
+                const tarifarioMapeado = {
+                    // IDs principales
+                    id: tarifario.tarifarioId,
+                    tarifarioId: tarifario.tarifarioId,
+                    assignmentId: tarifario.assignmentId,  // ✅ MANTENER assignmentId
+                    idAsignacion: tarifario.assignmentId,  // ✅ Alias para compatibilidad
                     
-                    tarifarios[tarifario.tarifarioId] = tarifarioMapeado;
-                });
+                    // ✅ CRÍTICO: Mapear assignmentType
+                    assignmentType: tarifario.tipo,  // 'support', 'project', 'task'
+                    tipo: tarifario.tipo === 'support' ? 'soporte' : 
+                          tarifario.tipo === 'project' ? 'proyecto' : 'tarea',
+                    
+                    // IDs de entidades relacionadas
+                    consultorId: tarifario.consultorId,
+                    clienteId: tarifario.companyId,
+                    moduleId: tarifario.moduleId,
+                    supportId: tarifario.supportId,
+                    projectId: tarifario.projectId,
+                    
+                    // ✅ Nombres mapeados correctamente
+                    consultorNombre: tarifario.consultorNombre,
+                    empresaNombre: tarifario.companyName,       // ✅ companyName → empresaNombre
+                    clienteNombre: tarifario.companyName,       // ✅ Alias
+                    moduloNombre: tarifario.moduleName || 'Sin módulo',  // ✅ moduleName → moduloNombre
+                    
+                    // ✅ Trabajo: Combinar soporte o proyecto
+                    trabajoNombre: tarifario.supportName || tarifario.projectName || 'Sin trabajo',
+                    trabajoId: tarifario.supportId || tarifario.projectId,
+                    
+                    // Costos y margen
+                    costoConsultor: parseFloat(tarifario.costoConsultor || 0),
+                    costoCliente: parseFloat(tarifario.costoCliente || 0),
+                    margen: parseFloat(tarifario.margen || 0),
+                    margenPorcentaje: parseFloat(tarifario.margenPorcentaje || 0),
+                    
+                    // Campos adicionales
+                    descripcionTarea: tarifario.descripcionTarea || null,
+                    fechaCreacion: tarifario.fechaCreacion || tarifario.createdAt,
+                    isActive: tarifario.isActive !== false,
+                    updatedAt: tarifario.updatedAt
+                };
                 
-                console.log('✅ Tarifarios mapeados:', Object.keys(tarifarios).length, 'entradas');
-                
-                return tarifarios;
-            }
-            return {};
-        } catch (error) {
-            console.error('Error obteniendo tarifarios:', error);
-            return {};
+                tarifarios[tarifario.tarifarioId] = tarifarioMapeado;
+            });
+            
+            console.log('✅ Tarifarios mapeados:', Object.keys(tarifarios).length, 'entradas');
+            
+            return tarifarios;
         }
+        return {};
+    } catch (error) {
+        console.error('Error obteniendo tarifarios:', error);
+        return {};
     }
+}
 
-    // ✅ NUEVA FUNCIÓN - Alias para compatibilidad
-    async getTarifario() {
-        return await this.getTarifarios();
-    }
+// ✅ Alias para compatibilidad
+async getTarifario() {
+    return await this.getTarifarios();
+}
 
     async getTarifaByAssignment(assignmentId) {
         try {

@@ -407,6 +407,12 @@ function updateSidebarCounts() {
 }
 function updateSupportsList() {
     const container = document.getElementById('supportsList');
+
+    if (!currentData.supports) {
+        console.warn('⚠️ currentData.supports es undefined');
+        currentData.supports = {};
+    }
+    
     const supports = Object.values(currentData.supports);
     
     if (supports.length === 0) {
@@ -469,7 +475,10 @@ function updateApprovedReportsList() {
     const endDate = document.getElementById('endDate');
     const filterInfo = document.getElementById('filterInfo');
     
-    if (!approvedReportsTableBody) return;
+    if (!approvedReportsTableBody) {
+        console.warn('⚠️ No se encontró approvedReportsTableBody');
+        return;
+    }
     
     // Mostrar/ocultar rango personalizado
     if (timeFilter && customDateRange) {
@@ -480,8 +489,10 @@ function updateApprovedReportsList() {
         }
     }
     
-    const reports = Object.values(currentData.reports);
+    const reports = Object.values(currentData.reports || {});
     const approvedReports = reports.filter(r => r.status === 'Aprobado');
+    
+    console.log('📊 Total reportes aprobados:', approvedReports.length);
     
     // Filtrar reportes por fecha
     let filteredReports = [];
@@ -586,87 +597,101 @@ function updateApprovedReportsList() {
         return;
     }
     
-    // Agrupar por asignación usando categoryFilteredReports
+    // ✅ NUEVA LÓGICA: Agrupar correctamente por assignmentId
     const assignmentSummary = {};
     const reportCounts = {};
     
     categoryFilteredReports.forEach(report => {
-        const assignment = Object.values(currentData.assignments).find(a => a.userId === report.userId);
-        const projectAssignment = Object.values(currentData.projectAssignments || {}).find(a => {
-            const assignmentUserId = a.consultorId || a.userId;
-            return assignmentUserId === report.userId;
-        });
+        // ✅ Usar assignmentId del reporte directamente
+        const assignmentId = report.assignmentId;
         
-        let assignmentId = null;
+        if (!assignmentId) {
+            console.warn('⚠️ Reporte sin assignmentId:', report.id);
+            return;
+        }
+        
+        // ✅ Buscar la asignación según el tipo
+        let assignment = null;
         let user = null;
         let company = null;
         let module = null;
+        let workName = 'No asignado';
         
-        if (assignment) {
-            assignmentId = assignment.assignmentId;
-            user = currentData.users[assignment.userId];
-            company = currentData.companies[assignment.companyId];
-            module = currentData.modules[assignment.moduleId];
-        } else if (projectAssignment) {
-            assignmentId = projectassignment.assignmentId;
-            const consultorId = projectAssignment.consultorId || projectAssignment.userId;
-            user = currentData.users[consultorId];
-            company = currentData.companies[projectAssignment.companyId];
-            module = currentData.modules[projectAssignment.moduleId];
+        if (report.assignmentType === 'task') {
+            // Es una TAREA
+            assignment = currentData.taskAssignments?.[assignmentId];
+            if (assignment) {
+                user = currentData.users[assignment.consultorId];
+                company = currentData.companies[assignment.companyId];
+                module = currentData.modules[assignment.moduleId];
+                const support = currentData.supports[assignment.linkedSupportId];
+                workName = support ? `${support.name} (Tarea)` : 'Tarea sin soporte';
+            }
+        } else if (report.assignmentType === 'project') {
+            // Es un PROYECTO
+            assignment = currentData.projectAssignments?.[assignmentId];
+            if (assignment) {
+                user = currentData.users[assignment.consultorId || assignment.userId];
+                company = currentData.companies[assignment.companyId];
+                module = currentData.modules[assignment.moduleId];
+                const project = currentData.projects[assignment.projectId];
+                workName = project ? project.name : 'Proyecto no encontrado';
+            }
+        } else {
+            // Es un SOPORTE
+            assignment = currentData.assignments?.[assignmentId];
+            if (assignment) {
+                user = currentData.users[assignment.userId];
+                company = currentData.companies[assignment.companyId];
+                module = currentData.modules[assignment.moduleId];
+                const support = currentData.supports[assignment.supportId];
+                workName = support ? support.name : 'Soporte no encontrado';
+            }
         }
         
-        if (assignmentId && user && company && module) {
-            const key = assignmentId;
-            
-            if (!reportCounts[key]) {
-                reportCounts[key] = 0;
-            }
-            reportCounts[key]++;
-            
-            if (!assignmentSummary[key]) {
-                assignmentSummary[key] = {
-                    assignmentId: assignmentId,
-                    consultantId: user.userId,
-                    consultantName: user.name,
-                    companyId: company.companyId,
-                    companyName: company.name,
-                    moduleName: module.name,
-                    totalHours: 0
-                };
-            }
-            
-            assignmentSummary[key].totalHours += parseFloat(report.hours || 0);
+        if (!assignment || !user || !company || !module) {
+            console.warn('⚠️ Datos incompletos para reporte:', report.id);
+            return;
         }
+        
+        // Agrupar por assignmentId
+        const key = assignmentId;
+        
+        if (!reportCounts[key]) {
+            reportCounts[key] = 0;
+        }
+        reportCounts[key]++;
+        
+        if (!assignmentSummary[key]) {
+            assignmentSummary[key] = {
+                assignmentId: assignmentId,
+                consultantId: user.userId,
+                consultantName: user.name,
+                companyId: company.companyId,
+                companyName: company.name,
+                workName: workName,
+                moduleName: module.name,
+                totalHours: 0
+            };
+        }
+        
+        assignmentSummary[key].totalHours += parseFloat(report.hours || 0);
     });
     
-    // Generar tabla con detección de tipo
+    console.log('📊 Resumen de asignaciones:', Object.keys(assignmentSummary).length);
+    
+    // Generar tabla
     approvedReportsTableBody.innerHTML = '';
     Object.values(assignmentSummary).forEach(summary => {
         const reportCount = reportCounts[summary.assignmentId];
         const row = document.createElement('tr');
-        
-        // Detectar tipo de asignación
-        const assignment = currentData.assignments[summary.assignmentId];
-        const projectAssignment = currentData.projectAssignments?.[summary.assignmentId];
-        
-        let workName = 'No asignado';
-        
-        if (assignment && assignment.supportId) {
-            // ES SOPORTE
-            const support = currentData.supports[assignment.supportId];
-            workName = support ? support.name : 'Soporte no encontrado';
-        } else if (projectAssignment && projectAssignment.projectId) {
-            // ES PROYECTO
-            const project = currentData.projects[projectAssignment.projectId];
-            workName = project ? project.name : 'Proyecto no encontrado';
-        }
         
         row.innerHTML = `
             <td><span class="consultant-id">${summary.consultantId}</span></td>
             <td><span class="consultant-name">${summary.consultantName}</span></td>
             <td><span class="consultant-id">${summary.companyId}</span></td>
             <td><span class="company-name">${summary.companyName}</span></td>
-            <td><span class="project-name">${workName}</span></td>
+            <td><span class="project-name">${summary.workName}</span></td>
             <td>${summary.moduleName}</td>
             <td>
                 <span class="hours-reported">${summary.totalHours.toFixed(1)} hrs</span>
@@ -677,6 +702,8 @@ function updateApprovedReportsList() {
         `;
         approvedReportsTableBody.appendChild(row);
     });
+    
+    console.log('✅ Tabla de reportes aprobados actualizada');
 }
 
 // === SOLUCIÓN SIMPLE: HEADERS Y COLUMNAS DINÁMICAS ===
@@ -1741,24 +1768,22 @@ function logout() {
  * @returns {string} - 'soporte', 'proyecto', o 'unknown'
  */
 function getReportCategory(report) {
-    if (!report.assignmentId) {
-        return 'unknown';
-    }
-    
-    // Verificar si es asignación de soporte (assignments)
-    const supportAssignment = currentData.assignments[report.assignmentId];
-    if (supportAssignment && supportAssignment.supportId) {
+    // ✅ Usar assignmentType para determinar categoría
+    if (report.assignmentType === 'project') {
+        return 'proyecto';
+    } else if (report.assignmentType === 'task' || report.assignmentType === 'support') {
         return 'soporte';
     }
     
-    // Verificar si es asignación de proyecto (project_assignments)
-    const projectAssignments = currentData.projectAssignments || {};
-    const projectAssignment = projectAssignments[report.assignmentId];
-    if (projectAssignment && projectAssignment.projectId) {
-        return 'proyecto';
-    }
+    // Fallback: buscar en las asignaciones
+    const assignment = currentData.assignments[report.assignmentId];
+    const projectAssignment = currentData.projectAssignments?.[report.assignmentId];
+    const taskAssignment = currentData.taskAssignments?.[report.assignmentId];
     
-    return 'unknown';
+    if (projectAssignment) return 'proyecto';
+    if (assignment || taskAssignment) return 'soporte';
+    
+    return 'soporte'; // Default
 }
 
 // 🆕 AGREGAR ESTA FUNCIÓN COMPLETA
@@ -1869,10 +1894,16 @@ function updateCategoryFilterButtons(activeCategory) {
  */
 function updateReportsListWithFilter() {
     const reportsTableBody = document.getElementById('reportsTableBody');
-    if (!reportsTableBody) return;
+    if (!reportsTableBody) {
+        console.warn('⚠️ No se encontró reportsTableBody');
+        return;
+    }
     
-    const allReports = Object.values(currentData.reports);
+    const allReports = Object.values(currentData.reports || {});
     const pendingReports = allReports.filter(r => r.status === 'Pendiente');
+    
+    console.log('📊 Total reportes:', allReports.length);
+    console.log('📊 Reportes pendientes:', pendingReports.length);
     
     // Aplicar filtro por categoría
     let filteredReports = pendingReports;
@@ -1883,15 +1914,15 @@ function updateReportsListWithFilter() {
         });
     }
     
+    console.log('📊 Reportes filtrados:', filteredReports.length);
+    
     // Actualizar contadores
     updateReportCategoryCounts(pendingReports);
     
     // Renderizar reportes filtrados
     if (filteredReports.length === 0) {
         const emptyMessage = getEmptyStateMessage(currentReportFilter);
-        
-        // Colspan dinámico según número de columnas
-        const colspan = currentReportFilter === 'proyecto' ? '9' : '10';
+        const colspan = currentReportFilter === 'proyecto' ? '10' : '9';
         
         reportsTableBody.innerHTML = `
             <tr>
@@ -1908,7 +1939,11 @@ function updateReportsListWithFilter() {
         reportsTableBody.innerHTML = '';
         filteredReports.forEach(report => {
             const reportRow = createReportTableRow(report);
-            reportsTableBody.appendChild(reportRow);
+            if (reportRow) {  // ✅ Solo agregar si la fila no es null
+                reportsTableBody.appendChild(reportRow);
+            } else {
+                console.warn('⚠️ createReportTableRow devolvió null para:', report.id);
+            }
         });
     }
 }
@@ -1978,33 +2013,39 @@ function getEmptyStateMessage(category) {
 function createReportTableRow(report) {
     const user = currentData.users[report.userId];
     
+    if (!user) {
+        console.warn('❌ Usuario no encontrado para reporte:', report.id);
+        return null; // ← Esto causa que no se muestre
+    }
+    
     let assignment = null;
     let company = null;
     let support = null;
     let project = null;
     let module = null;
+    let asignacionContent = 'Sin asignación';
     
-    // ✅ CORRECCIÓN: Determinar tipo de asignación y obtener datos CORRECTAMENTE
+    // ✅ CORRECCIÓN: Determinar tipo de asignación CORRECTAMENTE
     if (report.assignmentId) {
-        // 🎯 NUEVO: Verificar si es una TAREA primero
+        // 1. Verificar si es una TAREA
         if (report.assignmentType === 'task') {
             console.log('🔍 Buscando tarea:', report.assignmentId);
             
-            // Obtener taskAssignments
-            const taskAssignments = currentData.taskAssignments || window.PortalDB.getTaskAssignments();
+            const taskAssignments = currentData.taskAssignments || {};
             assignment = taskAssignments[report.assignmentId];
             
             if (assignment) {
                 console.log('✅ Tarea encontrada:', assignment);
                 company = currentData.companies[assignment.companyId];
-                // ⚠️ IMPORTANTE: Las tareas usan 'linkedSupportId' NO 'supportId'
                 support = currentData.supports[assignment.linkedSupportId];
                 module = currentData.modules[assignment.moduleId];
+                asignacionContent = `<i class="fa-solid fa-tasks"></i> Tarea: ${assignment.descripcion || assignment.taskName || 'Sin nombre'}`;
             } else {
-                console.warn('❌ Tarea NO encontrada:', report.assignmentId);
+                console.warn('⚠️ Tarea no encontrada:', report.assignmentId);
+                asignacionContent = '<i class="fa-solid fa-tasks"></i> Tarea no encontrada';
             }
         } 
-        // Verificar si es un PROYECTO
+        // 2. Verificar si es un PROYECTO
         else if (report.assignmentType === 'project') {
             console.log('🔍 Buscando proyecto:', report.assignmentId);
             
@@ -2013,17 +2054,18 @@ function createReportTableRow(report) {
             
             if (assignment) {
                 console.log('✅ Proyecto encontrado:', assignment);
-                company = currentData.companies[assignment.companyId];
                 project = currentData.projects[assignment.projectId];
+                company = currentData.companies[assignment.companyId];
                 module = currentData.modules[assignment.moduleId];
+                asignacionContent = project ? `<i class="fa-solid fa-folder-open"></i> ${project.name}` : 'Proyecto no encontrado';
             } else {
-                console.warn('❌ Proyecto NO encontrado:', report.assignmentId);
+                console.warn('⚠️ Proyecto no encontrado:', report.assignmentId);
+                asignacionContent = '<i class="fa-solid fa-folder-open"></i> Proyecto no encontrado';
             }
         }
-        // Verificar si es un SOPORTE (assignmentType === 'support' o undefined)
+        // 3. Es un SOPORTE (asignación normal)
         else {
             console.log('🔍 Buscando soporte:', report.assignmentId);
-            
             assignment = currentData.assignments[report.assignmentId];
             
             if (assignment) {
@@ -2031,24 +2073,28 @@ function createReportTableRow(report) {
                 company = currentData.companies[assignment.companyId];
                 support = currentData.supports[assignment.supportId];
                 module = currentData.modules[assignment.moduleId];
+                asignacionContent = support ? `<i class="fa-solid fa-headset"></i> ${support.name}` : 'Soporte no encontrado';
             } else {
-                console.warn('❌ Soporte NO encontrado:', report.assignmentId);
+                console.warn('⚠️ Soporte no encontrado:', report.assignmentId);
+                asignacionContent = '<i class="fa-solid fa-headset"></i> Soporte no encontrado';
             }
         }
     }
     
     const row = document.createElement('tr');
     
-    // Generar HTML según el filtro actual
-    if (currentReportFilter === 'proyecto') {
-        // HTML para PROYECTO (9 columnas - sin columna tipo)
+    // Determinar si es proyecto para ajustar columnas
+    const isProject = report.assignmentType === 'project';
+    
+    if (isProject) {
         row.innerHTML = `
-            <td><span class="consultant-id">${user?.id || 'N/A'}</span></td>
-            <td><span class="consultant-name">${user?.name || 'Usuario no encontrado'}</span></td>
+            <td><span class="consultant-id">${user.userId}</span></td>
+            <td><span class="consultant-name">${user.name}</span></td>
             <td><span class="company-name">${company ? company.name : 'Sin asignación'}</span></td>
-            <td><span class="project-name">${project ? project.name : 'Sin proyecto'}</span></td>
+            <td><span class="project-name">${asignacionContent}</span></td>
             <td>${module ? module.name : 'Sin módulo'}</td>
             <td><span class="hours-badge">${report.hours || 0} hrs</span></td>
+            <td>${report.description || 'Sin descripción'}</td>
             <td>${window.DateUtils ? window.DateUtils.formatDate(report.createdAt) : new Date(report.createdAt).toLocaleDateString()}</td>
             <td><span class="status-badge status-pending">Pendiente</span></td>
             <td>
@@ -2066,12 +2112,9 @@ function createReportTableRow(report) {
             </td>
         `;
     } else {
-        // HTML para SOPORTE, TAREA y TODOS (10 columnas)
-        const asignacionContent = support ? support.name : (project ? project.name : 'Sin asignación');
-        
         row.innerHTML = `
-            <td><span class="consultant-id">${user?.id || 'N/A'}</span></td>
-            <td><span class="consultant-name">${user?.name || 'Usuario no encontrado'}</span></td>
+            <td><span class="consultant-id">${user.userId}</span></td>
+            <td><span class="consultant-name">${user.name}</span></td>
             <td><span class="company-name">${company ? company.name : 'Sin asignación'}</span></td>
             <td><span class="project-name">${asignacionContent}</span></td>
             <td>${module ? module.name : 'Sin módulo'}</td>
@@ -6922,16 +6965,16 @@ async function loadTarifario() {  // ✅ AGREGAR async
 /**
  * Actualizar tabla de unión (principal)
  */
-  async function updateTarifarioTable(filterType = 'all') {
+async function updateTarifarioTable() {
     const tbody = document.getElementById('tarifarioTableBody');
     if (!tbody) return;
     
     const tarifario = await window.PortalDB.getTarifario();
     let tarifas = Object.values(tarifario);
     
-    // Aplicar filtro
-    if (filterType !== 'all') {
-        tarifas = tarifas.filter(t => t.tipo === filterType);
+    // ✅ CORRECCIÓN: Aplicar filtro usando assignmentType (no 'tipo')
+    if (currentTarifarioFilter !== 'all') {
+        tarifas = tarifas.filter(t => t.assignmentType === currentTarifarioFilter);
     }
     
     // Actualizar contador
@@ -6972,47 +7015,53 @@ async function loadTarifario() {  // ✅ AGREGAR async
 function createTarifaRow(tarifa) {
     const row = document.createElement('tr');
     
-    // Badge de tipo
-    const tipoBadge = tarifa.tipo === 'soporte' 
-        ? '<span class="tipo-badge soporte"><i class="fa-solid fa-headset"></i> Soporte</span>'
-        : '<span class="tipo-badge proyecto"><i class="fa-solid fa-folder"></i> Proyecto</span>';
+    // ✅ Determinar icono según assignmentType
+    let tipoIcon = '<i class="fa-solid fa-question"></i>';
+    let tipoLabel = 'Desconocido';
     
-    // Margen con color
-    const margenClass = tarifa.margen >= 0 ? 'positive' : 'negative';
-    const margenFormatted = formatCurrency(tarifa.margen);
+    if (tarifa.assignmentType === 'support') {
+        tipoIcon = '<i class="fa-solid fa-headset"></i>';
+        tipoLabel = 'Soporte';
+    } else if (tarifa.assignmentType === 'project') {
+        tipoIcon = '<i class="fa-solid fa-folder-open"></i>';
+        tipoLabel = 'Proyecto';
+    } else if (tarifa.assignmentType === 'task') {
+        tipoIcon = '<i class="fa-solid fa-tasks"></i>';
+        tipoLabel = 'Tarea';
+    }
     
+    const margen = parseFloat(tarifa.margen || 0);
+    const margenPorcentaje = parseFloat(tarifa.margenPorcentaje || 0);
+    
+    // ✅ ORDEN CORRECTO según HTML
     row.innerHTML = `
-        <td>${tipoBadge}</td>
-        <td><code>${tarifa.idAsignacion}</code></td>
-        <td><strong>${tarifa.modulo}</strong></td>
-        <td>${tarifa.consultorNombre}</td>
-        <td>${tarifa.clienteNombre}</td>
-        <td>${tarifa.trabajoNombre}</td>
+        <td>${tipoIcon} ${tipoLabel}</td>
+        <td><strong>${tarifa.assignmentId || 'N/A'}</strong></td>
+        <td>${tarifa.moduloNombre || 'Sin módulo'}</td>
+        <td>${tarifa.consultorNombre || 'Sin consultor'}</td>
+        <td>${tarifa.empresaNombre || tarifa.clienteNombre || 'Sin cliente'}</td>
+        <td>${tarifa.trabajoNombre || 'Sin trabajo'}</td>
+        <td class="editable-cell" data-field="costoConsultor">
+            <span class="tarifa-value">$${parseFloat(tarifa.costoConsultor || 0).toFixed(2)}</span>
+        </td>
+        <td class="editable-cell" data-field="costoCliente">
+            <span class="tarifa-value">$${parseFloat(tarifa.costoCliente || 0).toFixed(2)}</span>
+        </td>
         <td>
-            <span class="editable-value" 
-                  data-tarifa-id="${tarifa.id}" 
-                  data-field="costoConsultor"
-                  onclick="editTarifaInline('${tarifa.id}', 'costoConsultor')">
-                ${formatCurrency(tarifa.costoConsultor)}
+            <strong>$${margen.toFixed(2)}</strong>
+            <span class="badge ${margenPorcentaje >= 30 ? 'badge-success' : margenPorcentaje >= 15 ? 'badge-warning' : 'badge-danger'}">
+                ${margenPorcentaje.toFixed(1)}%
             </span>
         </td>
         <td>
-            <span class="editable-value" 
-                  data-tarifa-id="${tarifa.id}" 
-                  data-field="costoCliente"
-                  onclick="editTarifaInline('${tarifa.id}', 'costoCliente')">
-                ${formatCurrency(tarifa.costoCliente)}
-            </span>
-        </td>
-        <td class="margen-cell ${margenClass}">
-            ${margenFormatted}
-        </td>
-        <td>
-            <button class="action-btn btn-view" 
-                    onclick="viewTarifaDetails('${tarifa.id}')" 
-                    title="Ver detalles">
-                <i class="fa-solid fa-eye"></i>
-            </button>
+            <div class="action-buttons">
+                <button class="action-btn btn-edit" onclick="editTarifaInline('${tarifa.assignmentId}')" title="Editar tarifas">
+                    <i class="fa-solid fa-edit"></i>
+                </button>
+                <button class="action-btn btn-view" onclick="viewTarifaDetails('${tarifa.assignmentId}')" title="Ver detalles">
+                    <i class="fa-solid fa-eye"></i>
+                </button>
+            </div>
         </td>
     `;
     
@@ -7158,18 +7207,18 @@ function createTarifaRow(tarifa) {
  * Filtrar tarifario por tipo
  */
 function filterTarifarioByType(type) {
+    console.log(`🔍 Filtrando tarifario por: ${type}`);
     currentTarifarioFilter = type;
     
-    // Actualizar botones
-    document.querySelectorAll('.tarifario-filters .filter-btn').forEach(btn => {
+    // Actualizar botones activos
+    document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.classList.remove('active');
-        if (btn.dataset.type === type) {
+        if (btn.dataset.filter === type) {
             btn.classList.add('active');
         }
     });
     
-    // Actualizar tabla
-    updateTarifarioTable(type);
+    updateTarifarioTable();
 }
 
 /**
@@ -8339,6 +8388,31 @@ function generarBadgeOrigen(origen) {
     };
 }
 
+// Busca esta función en admin.js (aprox línea 8300-8400)
+async function exportData() {
+    try {
+        const data = await window.PortalDB.exportData();
+        
+        if (!data) {
+            window.NotificationUtils.error('Error al exportar datos');
+            return;
+        }
+        
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `arvic_backup_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        window.NotificationUtils.success('Datos exportados exitosamente');
+    } catch (error) {
+        console.error('❌ Error exportando:', error);
+        window.NotificationUtils.error('Error al exportar datos');
+    }
+}
 
 function loadCurrentData() {
     console.log('📊 Cargando datos actuales para reportes...');
@@ -8366,6 +8440,38 @@ function loadCurrentData() {
         taskAssignments: Object.keys(currentData.taskAssignments).length, // ✅ AGREGADO
         reports: Object.keys(currentData.reports).length
     });
+}
+
+// AGREGAR ESTA FUNCIÓN ANTES DE window.importData = importData;
+async function importData() {
+    try {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    console.log('📥 Datos a importar:', data);
+                    window.NotificationUtils.warning('Función de importación en desarrollo');
+                } catch (error) {
+                    console.error('❌ Error parseando archivo:', error);
+                    window.NotificationUtils.error('Error: Archivo JSON inválido');
+                }
+            };
+            reader.readAsText(file);
+        };
+        
+        input.click();
+    } catch (error) {
+        console.error('❌ Error en importación:', error);
+        window.NotificationUtils.error('Error al importar datos');
+    }
 }
 
 
